@@ -1,0 +1,293 @@
+/* ==========================================================================
+   meter.css: the divergence meter as DOM + SVG (eight Nixie tubes)
+   Last updated: 2026-09-25
+   --------------------------------------------------------------------------
+   Markup: written by tools/expand_meters.py (see its header). One tube:
+     <span class="nx__tube" data-char="1">
+       <svg class="nx__stack">  unlit cathode stack, ghost wires           z 1
+       <svg class="nx__lit">    sheath + core strokes, neon drop-shadows  z 2
+       <svg class="nx__front">  cathodes stacked in front of the lit one  z 3
+       ::before                  honeycomb anode mesh                      z 4
+       ::after                   front glass: specular stripe, dome, rim   z 5
+     </span>
+   Sizes: .nx--hero .nx--mini .nx--footer .nx--404
+   Tokens: --nx-core --nx-glow --nx-halo --nx-wire (tokens.css defines them; fallbacks here).
+   States set by meter.js: .is-off (tube dark), .is-dim (tube browning out),
+     [data-ignite] + :not([data-ignite-owned]) (armed for the loader, 1.8s CSS deadline),
+     [data-gl-live] (the WebGL meter is drawn over this one).
+   Reduced motion: no hum/flicker animation; meter.js swaps values instantly.
+   Needs http(s): <use href="…/nixie.svg#…"> does not resolve from file://.
+   ========================================================================== */
+
+.nx {
+  /* palette (tokens.css wins when present) */
+  --nx-c-core: var(--nx-core, #FFD7A0);
+  --nx-c-glow: var(--nx-glow, #FF6A00);
+  --nx-c-halo: var(--nx-halo, #FF3D00);
+  --nx-c-wire: var(--nx-wire, #5E5A52);
+  --nx-c-body: #121310;                 /* smoked glass over lab night */
+
+  /* geometry: span = 8 tubes + 7 gaps; gap = tube width x --nx-gr */
+  --nx-gr: .16;
+  --nx-span: min(1100px, 92vw, calc(100vw - 40px));
+  --nx-tw: calc(var(--nx-span) / (8 + 7 * var(--nx-gr)));
+  --nx-dome: calc(var(--nx-tw) * .34);  /* vertical radius of the rounded top */
+
+  /* strokes in glyph units (the sprite grid is 60 x 100) */
+  --nx-sw-sheath: 2.9;
+  --nx-sw-core: 1.15;
+  --nx-sw-wire: 1;
+  --nx-stack-alpha: .3;
+  --nx-front-alpha: .9;
+  --nx-mesh-alpha: .5;
+
+  /* glow radii scale with the tube */
+  --nx-g1: calc(var(--nx-tw) * .010);
+  --nx-g2: calc(var(--nx-tw) * .040);
+  --nx-g3: calc(var(--nx-tw) * .110);
+
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--nx-tw) * var(--nx-gr));
+  width: max-content;
+  max-width: 100%;
+  position: relative;
+  line-height: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.nx--hero   { --nx-span: min(1100px, 92vw, calc(100vw - 40px)); }
+.nx--footer { --nx-span: min(760px, 88vw, calc(100vw - 40px)); --nx-gr: .18; }
+.nx--404    { --nx-span: min(880px, 92vw, calc(100vw - 40px)); }
+
+/* Small tubes: fewer glyph units per pixel, so thicker strokes and no ghost clutter. */
+@media (max-width: 700px) {
+  .nx--hero, .nx--footer, .nx--404 {
+    --nx-sw-sheath: 3.8;
+    --nx-sw-core: 1.6;
+    --nx-sw-wire: 1.5;
+    --nx-stack-alpha: .36;
+    --nx-front-alpha: .6;
+    --nx-mesh-alpha: .32;
+  }
+}
+
+/* ---- the tube: glass body, socket collar ---------------------------------- */
+
+.nx__tube {
+  position: relative;
+  flex: none;
+  width: var(--nx-tw);
+  aspect-ratio: 10 / 22;
+  isolation: isolate;
+  border-radius: 50% 50% calc(var(--nx-tw) * .07) calc(var(--nx-tw) * .07) /
+                 var(--nx-dome) var(--nx-dome) calc(var(--nx-tw) * .07) calc(var(--nx-tw) * .07);
+  background:
+    /* socket collar: the glass seats into a dark ring with a turned metal lip */
+    linear-gradient(to top,
+      #0a0a09 0%, #171814 5.5%, #22221e 7.4%, #3a3933 8.1%, #121311 8.7%, rgb(18 19 16 / 0) 9.4%),
+    /* cylinder shading: dark limbs, a lifted left third */
+    linear-gradient(90deg,
+      rgb(0 0 0 / .55) 0%, rgb(0 0 0 / .18) 9%, rgb(255 255 255 / .035) 26%,
+      rgb(255 255 255 / .012) 52%, rgb(0 0 0 / .14) 78%, rgb(0 0 0 / .5) 100%),
+    /* getter flash: the faint smoked mirror inside the dome of an old tube */
+    radial-gradient(46% 11% at 50% 3%, rgb(58 55 49 / .55), rgb(58 55 49 / 0) 100%),
+    var(--nx-c-body);
+}
+
+/* ---- inside: stack, lit numeral, front wires ------------------------------- */
+
+.nx__stack, .nx__lit, .nx__front {
+  position: absolute;
+  left: -4%;
+  width: 108%;
+  top: 7.4%;
+  height: auto;
+  aspect-ratio: 60 / 100;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.nx__stack {
+  z-index: 1;
+  color: var(--nx-c-wire);
+  stroke-width: var(--nx-sw-wire);
+  opacity: var(--nx-stack-alpha);
+  /* the neon lights the inside of the envelope around the digit */
+  background: radial-gradient(50% 36% at 50% 50%, rgb(255 92 16 / .36), rgb(255 70 10 / .12) 55%, rgb(255 61 0 / 0) 100%);
+}
+
+.nx__lit {
+  z-index: 2;
+  /* tight sheath, then the light that leaks into the gas, then a faint halo: crisp line, no blob */
+  filter:
+    drop-shadow(0 0 var(--nx-g1) rgb(255 120 30 / .95))
+    drop-shadow(0 0 var(--nx-g2) rgb(255 106 0 / .6))
+    drop-shadow(0 0 var(--nx-g3) rgb(255 61 0 / .32));
+}
+.nx__sheath { color: var(--nx-c-glow); stroke-width: var(--nx-sw-sheath); }
+.nx__core   { color: var(--nx-c-core); stroke-width: var(--nx-sw-core); }
+
+/* Cathodes in front of the lit digit: dark wire silhouetted against the glow (multiply keeps them near
+   invisible over the dark glass and draws them only where they cross light). */
+.nx__front {
+  z-index: 3;
+  color: #6a4630;
+  stroke-width: var(--nx-sw-wire);
+  opacity: var(--nx-front-alpha);
+  mix-blend-mode: multiply;
+}
+
+/* ---- honeycomb anode (in front of the cathodes) ---------------------------- */
+
+.nx__tube::before {
+  content: "";
+  position: absolute;
+  z-index: 4;
+  left: 5%;
+  right: 5%;
+  top: 16.5%;
+  bottom: 20.5%;
+  pointer-events: none;
+  opacity: var(--nx-mesh-alpha);
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6.928' height='12' viewBox='0 0 6.928 12'%3E%3Cpath d='M3.464 0L6.928 2L6.928 6L3.464 8L0 6L0 2Z M3.464 8L3.464 12' fill='none' stroke='%232a2019' stroke-width='.5'/%3E%3C/svg%3E");
+  background-size: calc(var(--nx-tw) * .082) auto;
+  background-position: center;
+  /* the mesh wraps round the stack: it fades where the cylinder turns away */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%),
+                      linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%),
+              linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* ---- front glass: the gloss is what sells it -------------------------------- */
+
+.nx__tube::after {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  inset: 0 0 9.4% 0;
+  pointer-events: none;
+  border-radius: 50% 50% 0 0 / var(--nx-dome) var(--nx-dome) 0 0;
+  background:
+    /* raking specular stripe on the left shoulder */
+    linear-gradient(90deg,
+      rgb(222 230 236 / 0) 12%, rgb(222 230 236 / .17) 16.5%, rgb(222 230 236 / .05) 20%, rgb(222 230 236 / 0) 25%),
+    /* a softer second reflection on the right */
+    linear-gradient(90deg, rgb(222 230 236 / 0) 79%, rgb(222 230 236 / .055) 85%, rgb(222 230 236 / 0) 90%),
+    /* light caught on the dome */
+    radial-gradient(26% 6% at 34% 5%, rgb(236 240 243 / .30), rgb(236 240 243 / 0) 100%);
+  /* self-coloured rim: the glass edge you sense more than see */
+  box-shadow:
+    inset 0 0 0 1px rgb(216 224 230 / .06),
+    inset 1px 0 0 rgb(216 224 230 / .08),
+    inset 0 1px 1px rgb(216 224 230 / .14);
+}
+
+/* ---- states ---------------------------------------------------------------- */
+
+.nx__tube.is-off .nx__lit { visibility: hidden; }
+.nx__tube.is-off .nx__stack { background: none; }
+.nx__tube.is-dim .nx__lit { opacity: .38 !important; }  /* !important beats the hum animation */
+.nx__tube[data-char="blank"] .nx__stack { background: none; }
+.nx[data-gl-live] { opacity: 0; pointer-events: none; transition: opacity .5s cubic-bezier(.33, 1, .68, 1); }
+.nx[data-gl-live] .nx__lit { animation: none !important; }  /* covered by the canvas: no work */
+
+/* meter-gl.js lays a real <button> over the meter: click or Enter re-reads the world line. */
+/* (Its box styles are inline, so generic page button rules cannot paint over the meter.) */
+.nx-gl-hit { border-radius: 14px; }
+.nx-gl-hit:focus-visible { outline: 2px solid rgb(214 217 207 / .7); outline-offset: 4px; }
+.nx-gl-hit:focus:not(:focus-visible) { outline: none; }
+
+.nx__text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- motion: a neon hum (never faster than one dip per ~7s per tube) -------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="reduce"]) .nx:not(.nx--mini) .nx__lit {
+    animation: nx-hum var(--nx-hum, 9.7s) linear var(--nx-hum-delay, 0s) infinite;
+  }
+  :root:not([data-motion="reduce"]) .nx--404 .nx__lit { animation-name: nx-hum-unstable; }
+
+  /* Loader arm (opt-in via data-ignite): the digits wait dark for meter.js ignite(). If the module never
+     runs, the 1.8s deadline shows them anyway. Only under the boot snippet's data-motion="full". */
+  :root[data-motion="full"] .nx[data-ignite]:not([data-ignite-owned]) .nx__lit {
+    animation: nx-arm 1ms 1.8s both, nx-hum var(--nx-hum, 9.7s) linear var(--nx-hum-delay, 0s) infinite;
+  }
+}
+
+.nx__tube:nth-child(1) { --nx-hum: 9.7s;  --nx-hum-delay: -1.3s; }
+.nx__tube:nth-child(2) { --nx-hum: 12.1s; --nx-hum-delay: -7.9s; }
+.nx__tube:nth-child(3) { --nx-hum: 8.3s;  --nx-hum-delay: -4.2s; }
+.nx__tube:nth-child(4) { --nx-hum: 10.9s; --nx-hum-delay: -0.6s; }
+.nx__tube:nth-child(5) { --nx-hum: 7.6s;  --nx-hum-delay: -5.5s; }
+.nx__tube:nth-child(6) { --nx-hum: 11.4s; --nx-hum-delay: -2.8s; }
+.nx__tube:nth-child(7) { --nx-hum: 9.1s;  --nx-hum-delay: -6.4s; }
+.nx__tube:nth-child(8) { --nx-hum: 8.8s;  --nx-hum-delay: -3.7s; }
+
+@keyframes nx-hum {
+  0%, 100% { opacity: 1; }
+  11%   { opacity: .965; }
+  12.5% { opacity: 1; }
+  38%   { opacity: .975; }
+  40%   { opacity: 1; }
+  71%   { opacity: 1; }
+  71.3% { opacity: .62; }  /* a ~40ms brown-out, once per cycle */
+  71.7% { opacity: 1; }
+  88%   { opacity: .97; }
+  89%   { opacity: 1; }
+}
+@keyframes nx-hum-unstable {
+  0%, 100% { opacity: 1; }
+  17%   { opacity: 1; }
+  17.4% { opacity: .3; }
+  17.9% { opacity: .95; }
+  44%   { opacity: .9; }
+  46%   { opacity: 1; }
+  63%   { opacity: 1; }
+  63.3% { opacity: .5; }
+  63.8% { opacity: 1; }
+  90%   { opacity: .92; }
+}
+@keyframes nx-arm { from { visibility: hidden; } to { visibility: visible; } }
+
+/* ---- mini: the nav meter, 26px tubes on a dark pill ------------------------ */
+
+.nx--mini {
+  --nx-tw: 12px;
+  --nx-gr: .17;
+  --nx-sw-sheath: 7;
+  --nx-sw-core: 3.2;
+  --nx-g1: .4px;
+  --nx-g2: 1.4px;
+  --nx-g3: 3px;
+  align-items: center;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: #080907;
+  box-shadow: inset 0 0 0 1px rgb(216 224 230 / .07), inset 0 1px 0 rgb(216 224 230 / .06);
+}
+.nx--mini .nx__tube { border-radius: 50% 50% 2px 2px / 4px 4px 2px 2px; }
+.nx--mini .nx__tube::after { border-radius: 50% 50% 0 0 / 4px 4px 0 0; box-shadow: inset 0 1px 0 rgb(216 224 230 / .1); }
+.nx--mini .nx__stack { color: transparent; background: radial-gradient(60% 40% at 50% 50%, rgb(255 92 16 / .22), rgb(255 61 0 / 0) 100%); opacity: 1; }
+.nx--mini .nx__front,
+.nx--mini .nx__tube::before { display: none; }
+
+@media print {
+  .nx__lit { filter: none; }
+  .nx__tube::before, .nx__tube::after { display: none; }
+}

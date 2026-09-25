@@ -1,0 +1,1633 @@
+/* ==========================================================================
+   site.css: the WORLD LINE visual system (DESIGN.md sections 6, 8, 9)
+   --------------------------------------------------------------------------
+   Load order: tokens.css, motion-core.css, page-transitions.css, meter/meter.css, this.
+   Contract: every word renders at rest with no JS, no WebGL and no CDN. Nothing here
+   starts hidden. Hovers are tonal steps; no underline animation, no box lift.
+   Grounds: hero and footer lab night; chapters 1-3 summer haze; chapter 4 falls
+   from haze to lab after its text; chapters 5-9 lab night.
+   ========================================================================== */
+
+/* ---- Faces ------------------------------------------------------------------
+   Erode arrives from the Fontshare CSS API (link in each page head).
+   Necto Mono: Collletttivo, OFL-1.1, served by jsDelivr's gh endpoint at a pinned commit.
+   The fallback metrics were measured in Chromium against Georgia (tools/font_metrics.py). */
+@font-face {
+  font-family: "Necto Mono";
+  src: url("https://cdn.jsdelivr.net/gh/collletttivo/necto-mono@db9edb73bace38d64f36f29e698d9c7547045ce6/fonts/NectoMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Erode Fallback";
+  src: local("Georgia");
+  size-adjust: 89.4%;
+  ascent-override: 104.1%;
+  descent-override: 24.6%;
+  line-gap-override: 0%;
+}
+
+/* ---- Base ------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  background: var(--lab);
+  color: var(--lab-ink);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--nav-h) + 1.5rem);
+  hanging-punctuation: first;
+}
+body {
+  margin: 0;
+  min-height: 100svh;
+  font: 400 var(--step-text)/var(--lh-text) var(--font-text);
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  font-synthesis-weight: none;
+}
+/* A ground re-declares --bg/--fg (tokens.css); re-apply the ink so descendants inherit it. */
+[data-ground] { color: var(--fg); }
+img, svg { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+p, h1, h2, h3, dl, dd, ol, ul, figure { margin: 0; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+data, time { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums slashed-zero; }
+::selection { background: color-mix(in oklab, var(--fg) 85%, var(--bg)); color: var(--bg); }
+
+/* Focus: a 2px ring in the ground's own ink (13:1 on lab, 10:1 on haze) */
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; border-radius: 3px; }
+main:focus { outline: none; }
+
+.vh {
+  position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: fixed; left: var(--margin); top: 10px; z-index: 100;
+  padding: 0.7rem 1rem; border-radius: 6px;
+  background: var(--lab-ink); color: var(--lab);
+  font: 600 var(--step-small)/1 var(--font-text); text-decoration: none;
+  translate: 0 calc(-100% - 20px);
+}
+.skip-link:focus-visible, .skip-link:focus { translate: none; outline-color: var(--lab-ink); }
+
+/* JS-only controls ship `hidden`. Reserve nothing, show nothing, until their module wires them. */
+[data-sound-toggle][hidden], [data-keypad][hidden] { display: none !important; }
+
+/* ---- Grid ------------------------------------------------------------------- */
+:root { --cols: 12; --max-w: 1680px; }
+@media (width < 48em) { :root { --cols: 4; --gutter: 16px; } }
+.hero__foot, .chapter__grid, .dmail__grid, .footer__grid, .lab-grid, .primer__grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  column-gap: var(--gutter);
+  padding-inline: var(--margin);
+  max-width: var(--max-w);
+  margin-inline: auto;
+}
+
+/* Grain: an SVG turbulence tile on the substrate only (never over text: z-index -1 in an
+   isolated section). Strength kept near the colour.md range (0.04-0.10 for a CSS tile). */
+:root {
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.4 -.35'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.grained { position: relative; isolation: isolate; }
+.grained::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--grain) 0 0 / 220px 220px;
+  opacity: var(--grain-o, 0.08);
+  mix-blend-mode: soft-light;
+  /* Grain fades out wherever the element meets an ungrained ground, so it never draws a seam. */
+  -webkit-mask-image: var(--grain-mask, none);
+  mask-image: var(--grain-mask, none);
+}
+
+/* ============================================================================
+   Nav: fixed, minimal. Wordmark left, the mini meter (chapter index) centre, Lab + sound right.
+   The plate follows the ground under it (main.js sets html[data-nav]); no JS = lab plate.
+   ============================================================================ */
+:root { --nav-bg: var(--lab); --nav-fg: var(--lab-ink); --nav-meta: color-mix(in oklab, var(--lab-ink) 68%, var(--lab)); }
+:root[data-nav="hero"] { --nav-bg: rgb(14 15 13 / 0); }
+:root[data-nav="haze"] { --nav-bg: var(--haze); --nav-fg: var(--haze-ink); --nav-meta: color-mix(in oklab, var(--haze-ink) 68%, var(--haze)); }
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 40;
+  height: var(--nav-h);
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 1rem;
+  padding-inline: var(--margin);
+  background: var(--nav-bg); color: var(--nav-fg);
+  --fg: var(--nav-fg);
+  transition: background-color var(--dur-4) var(--ease-enter), color var(--dur-4) var(--ease-enter);
+}
+/* No JS: the plate cannot follow the ground, so the nav is a transparent header that scrolls away with the
+   first screen (always lab night there) instead of an opaque bar seaming against the hero's haze. */
+:root:not(.js) .nav { position: absolute; background: transparent; }
+.nav__mark {
+  justify-self: start;
+  font: 500 0.9375rem/1 var(--font-display);
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  padding: 0.85rem 0.25rem;
+  border-radius: 4px;
+  transition: color var(--dur-2) var(--ease-micro);
+}
+.nav__mark:hover { color: var(--nav-meta); }
+
+/* The instrument housing: always lab-dark so the neon reads on every ground. */
+.nav__meter {
+  position: relative;
+  justify-self: center;
+  view-transition-name: meter;
+  min-width: 8.5rem; min-height: 2.5rem;
+  padding: 0.3rem 0.65rem;
+  display: grid; place-items: center;
+  border-radius: 7px;
+  background: #141613;
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.08), inset 0 0 0 1px rgb(214 217 207 / 0.05);
+  color: var(--lab-ink);
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.nav__meter:hover { background: #1B1D1A; }
+.nav__meter-slot { display: grid; place-items: center; pointer-events: none; }
+/* Expanded: meter.css draws the mini meter on its own dark pill, so the housing steps back to a hit area. */
+.nav__meter:has(.nx--mini) { min-width: 0; min-height: 0; padding: 0; border-radius: 999px; background: transparent; box-shadow: none; }
+.nav__meter:has(.nx--mini):hover .nx--mini { background: #151714; }
+.nav__meter .nx--mini { transition: background-color var(--dur-2) var(--ease-micro); }
+.hero__meter[role="button"] { cursor: pointer; border-radius: 12px; }
+.hero__meter:has(.nx[data-gl-live]) { pointer-events: none; }
+/* Stand-in reading while the meter markup is not expanded yet (tools/expand_meters.py). */
+.nav__meter-slot:empty::before {
+  content: attr(data-reading);
+  font: 400 0.9375rem/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+.nav__meter-btn {
+  position: absolute; inset: 0; z-index: 1;
+  width: 100%; height: 100%;
+  border: 0; border-radius: inherit; background: transparent;
+  cursor: pointer;
+}
+.nav__meter-btn:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 3px; }
+:root[data-nav="haze"] .nav__meter-btn:focus-visible { outline-color: var(--haze-ink); }
+
+.nav__end { justify-self: end; display: flex; align-items: center; gap: 0.25rem; }
+/* v3: the meter and, below 64em, a "Chapters" tab fused to its right side (DESIGN 12.6). Both open the menu. */
+.nav__centre { justify-self: center; display: flex; align-items: stretch; }
+.nav__chapters { display: none; }
+@media (width < 64em) {
+  .nav__chapters {
+    position: relative;
+    display: inline-flex; align-items: center;
+    min-height: 26px; padding: 0 0.8rem 0 0.7rem;
+    border: 0; border-radius: 0 999px 999px 0;
+    background: #080907;
+    box-shadow: inset 1px 0 0 rgb(214 217 207 / 0.14), inset 0 0 0 1px rgb(216 224 230 / 0.07);
+    color: var(--lab-ink);
+    font: 500 0.8125rem/1 var(--font-text);
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: background-color var(--dur-2) var(--ease-micro);
+  }
+  .nav__chapters::after { content: ""; position: absolute; inset: -8px -4px; }   /* a 44px touch target, same ink */
+  .nav__chapters:hover { background: #151714; }
+  .nav__chapters:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 3px; }
+  :root[data-nav="haze"] .nav__chapters:focus-visible { outline-color: var(--haze-ink); }
+  .nav__centre .nx--mini { border-radius: 999px 0 0 999px; }
+  .nav__centre .nav__meter { border-radius: 999px 0 0 999px; }
+}
+.nav__link, .nav__sound {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  min-height: 44px; padding: 0 0.7rem;
+  border: 0; border-radius: 6px; background: transparent;
+  font: 500 var(--step-small)/1 var(--font-text);
+  text-decoration: none; cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro), color var(--dur-2) var(--ease-micro);
+}
+.nav__link:hover, .nav__sound:hover { background: color-mix(in oklab, var(--nav-fg) 9%, transparent); }
+.nav__link[aria-current="page"] { font-weight: 700; }
+.nav__sound-glyph { width: 20px; height: 12px; overflow: visible; }
+.nav__sound-glyph path {
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round;
+}
+.nav__sound-glyph .flat { stroke-width: 2.2; }
+.nav__sound-glyph .bars { opacity: 0; }
+.nav__sound[aria-pressed="true"] .nav__sound-glyph .flat { opacity: 0; }
+.nav__sound[aria-pressed="true"] .nav__sound-glyph .bars { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion="full"] .nav__sound[aria-pressed="true"] .bars path {
+    animation: sound-bar 900ms var(--ease-ambient) infinite alternate;
+  }
+  :root[data-motion="full"] .nav__sound[aria-pressed="true"] .bars path:nth-child(2) { animation-delay: -300ms; }
+  :root[data-motion="full"] .nav__sound[aria-pressed="true"] .bars path:nth-child(3) { animation-delay: -600ms; }
+  :root[data-motion="full"] .nav__sound[aria-pressed="true"] .bars path:nth-child(4) { animation-delay: -150ms; }
+}
+@keyframes sound-bar { to { translate: 0 2.5px; } }
+
+@media (width < 48em) {
+  .nav { column-gap: 0.25rem; padding-inline: 14px; }
+  .nav__mark { font-size: 0.75rem; letter-spacing: 0.07em; padding-inline: 0.15rem; white-space: nowrap; }
+  .nav__meter { min-width: 0; padding: 0.25rem 0.45rem; }
+  .nav .nx--mini { --nx-tw: 10px; padding: 3px 8px; }
+  .nav__chapters { padding: 0 0.6rem 0 0.55rem; font-size: 0.78rem; }
+  .nav__link, .nav__sound { padding: 0 0.4rem; }
+  .nav__end { gap: 0; }
+  .nav__sound-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
+/* ---- Chapter index: grows down out of the meter housing (popover, no JS needed) ----- */
+.index {
+  position: fixed;
+  inset: calc(var(--nav-h) + 6px) auto auto 50%;
+  translate: -50% 0;
+  margin: 0;
+  width: min(34rem, calc(100vw - 2 * var(--margin)));
+  max-height: calc(100svh - var(--nav-h) - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1.1rem 1.1rem 1rem;
+  border: 0;
+  border-radius: 10px;
+  background: #151714;
+  color: var(--lab-ink);
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.07), 0 6px 14px -8px rgb(0 0 0 / 0.55);
+}
+.index:popover-open {
+  clip-path: inset(0 0 0 0 round 10px);
+  transition: clip-path var(--dur-4) var(--ease-move), display var(--dur-3) allow-discrete, overlay var(--dur-3) allow-discrete;
+}
+.index:not(:popover-open) { clip-path: inset(0 0 100% 0 round 10px); transition-duration: var(--dur-3); }
+@starting-style { .index:popover-open { clip-path: inset(0 0 100% 0 round 10px); } }
+.index::backdrop { background: rgb(14 15 13 / 0.35); }
+.index__title {
+  font: italic 400 1.375rem/1.1 var(--font-display);
+  padding: 0.25rem 0.6rem 0.8rem;
+}
+.index__list { list-style: none; padding: 0; display: grid; gap: 2px; }
+.index__list a {
+  display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) auto; align-items: baseline; column-gap: 0.75rem;
+  min-height: 44px; padding: 0.6rem 0.6rem;
+  border-radius: 6px; text-decoration: none;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.index__list a:hover { background: color-mix(in oklab, var(--lab-ink) 8%, #151714); }
+.index__list a[aria-current="true"] { background: color-mix(in oklab, var(--lab-ink) 11%, #151714); }
+.index__list a[aria-current="true"] .index__name { font-weight: 650; }
+.index__num { font: italic 400 1.25rem/1 var(--font-display); color: color-mix(in oklab, var(--lab-ink) 68%, #151714); }
+.index__name { font: 400 1rem/1.3 var(--font-text); }
+.index__value { font: 400 var(--step-small)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: color-mix(in oklab, var(--lab-ink) 72%, #151714); }
+.index__foot {
+  display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem;
+  margin-top: 0.75rem; padding: 0.75rem 0.6rem 0.25rem;
+  font: 500 var(--step-small)/1.4 var(--font-text);
+}
+.index__foot a { display: inline-flex; align-items: center; min-height: 32px; }
+.index__foot a:hover { color: color-mix(in oklab, var(--lab-ink) 72%, #151714); }
+/* No Popover API (old engines): main.js toggles .is-open instead */
+.index.is-open { display: block; }
+
+/* ============================================================================
+   Hero: the meter owns the first screen; title and state sit at its foot.
+   Lab night with the grade's white haze falling from the top edge.
+   ============================================================================ */
+.hero {
+  min-height: 100svh;
+  display: flex; flex-direction: column;
+  padding-top: var(--nav-h);
+  background:
+    linear-gradient(to bottom,
+      rgb(242 240 232 / 0.13) 0%, rgb(242 240 232 / 0.1) 8%, rgb(242 240 232 / 0.065) 17%,
+      rgb(242 240 232 / 0.035) 26%, rgb(242 240 232 / 0.012) 34%, rgb(242 240 232 / 0) 42%),
+    var(--lab);
+  --grain-o: 0.1;
+  --grain-mask: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+.hero__stage {
+  flex: 1;
+  display: grid; place-items: center;
+  padding: clamp(1.5rem, 5vh, 4rem) var(--margin) clamp(1rem, 3vh, 2.5rem);
+}
+/* Not positioned: meter-gl.js puts its re-read <button> early in the stage with no z-index, so a positioned
+   wrapper here would sit on top of it. */
+.hero__meter {
+  width: min(100%, 68rem);
+  display: grid; place-items: center;
+}
+.hero__meter:empty::before,
+.footer__meter:empty::before,
+.lost__meter:empty::before {
+  content: attr(data-reading);
+  font: 400 clamp(4rem, 2rem + 11vw, 12rem)/1 var(--font-display);
+  letter-spacing: 0.04em;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--ink-60);
+}
+.hero__foot {
+  width: 100%;
+  row-gap: 1.25rem;
+  align-items: end;
+  padding-bottom: clamp(1.5rem, 5vh, 3.5rem);
+}
+.hero__title { grid-column: 1 / span 7; }
+.hero h1 {
+  font: 400 var(--step-h1)/0.95 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.hero__sub {
+  margin-top: 0.75rem;
+  font: italic 400 clamp(1.1875rem, 1.05rem + 0.45vw, 1.5rem)/1.3 var(--font-display);
+  color: var(--ink-meta);
+  max-width: 32ch;
+}
+.hero__meta {
+  grid-column: 8 / span 5;
+  justify-self: end; align-self: end; text-align: right;
+  white-space: nowrap;
+  font: 400 var(--step-tiny)/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- The two doors (DESIGN 12.1) ---------------------------------------------------------
+   One instrument split in two, like the plies either side of the 1% gap: the outer corners round, the inner ones
+   nearly square, a 3px gap between them. Equal weight (a choice, not a primary and a ghost), a tonal step on hover,
+   and the site's one drawn arrow sliding inside its own box. Secondary links sit on the same line as plain words. */
+.hero__choose {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 1rem clamp(1.5rem, 3vw, 2.75rem);
+}
+.doors { display: flex; gap: 3px; }
+.door {
+  display: grid; grid-template-columns: minmax(0, auto) auto; align-items: center;
+  column-gap: clamp(1.25rem, 2vw, 2.25rem); row-gap: 0.3rem;
+  min-height: 68px; padding: 0.8rem 1.15rem 0.85rem 1.3rem;
+  background: color-mix(in oklab, var(--fg) 7%, var(--bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 10%, transparent);
+  text-decoration: none;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.door:first-child { border-radius: 12px 3px 3px 12px; }
+.door:last-child { border-radius: 3px 12px 12px 3px; }
+.door:hover { background: color-mix(in oklab, var(--fg) 13%, var(--bg)); }
+.door:active { background: color-mix(in oklab, var(--fg) 4%, var(--bg)); }
+.door:focus-visible { outline-offset: 3px; }
+.door__label { grid-column: 1; font: 500 clamp(1.1875rem, 1.05rem + 0.45vw, 1.4375rem)/1.1 var(--font-display); }
+.door__hint { grid-column: 1; font: 400 var(--step-small)/1.3 var(--font-text); color: var(--ink-meta); }
+.door__arrow { grid-column: 2; grid-row: 1 / span 2; width: 0.95rem; height: 0.95rem; overflow: visible; transition: translate var(--dur-2) var(--ease-micro); }
+.door__arrow path, .idea__arrow path, .turn__arrow path, .gate__glyph path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+@media (hover: hover) and (pointer: fine) { :root[data-motion="full"] .door:hover .door__arrow { translate: 2px 2px; } }
+/* The remembered choice reads as the current one: a tonal step and a weight step, no badge. */
+:root[data-reader="fan"][data-reader-chosen] .door[data-door="fan"],
+:root[data-reader="new"][data-reader-chosen] .door[data-door="new"] { background: color-mix(in oklab, var(--fg) 11%, var(--bg)); }
+.hero__links { display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; font: 500 var(--step-small)/1.4 var(--font-text); }
+.hero__links a { display: inline-flex; align-items: center; min-height: 44px; text-decoration-color: color-mix(in oklab, var(--fg) 45%, var(--bg)); transition: color var(--dur-2) var(--ease-micro); }
+.hero__links a:hover { color: var(--ink-meta); }
+
+/* The one primary action: a bare word with a drawn arrow in a static box. */
+.begin {
+  display: inline-flex; align-items: center;
+  min-height: 48px; padding: 0 1.1rem 0 1.15rem;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--fg) 7%, var(--bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 10%, transparent);
+  font: 500 1.25rem/1 var(--font-display);
+  text-decoration: none;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.begin:hover { background: color-mix(in oklab, var(--fg) 14%, var(--bg)); }
+.begin:active { background: color-mix(in oklab, var(--fg) 4%, var(--bg)); }
+.begin [data-magnetic-label] { display: inline-flex; align-items: center; gap: 0.55rem; }
+.begin__arrow { width: 0.85em; height: 0.85em; overflow: visible; }
+.begin__arrow path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (width < 64em) {
+  .hero__title, .hero__meta { grid-column: 1 / -1; }
+  .hero__meta { grid-row: 3; justify-self: start; text-align: left; }
+}
+@media (width < 48em) {
+  .hero__stage { padding-inline: 20px; }
+  .hero__foot { row-gap: 1.1rem; }
+  .hero__title, .hero__meta, .hero__choose { grid-column: 1 / -1; }
+  .hero__meta { grid-row: 3; justify-self: start; text-align: left; white-space: normal; }
+  .hero__choose { row-gap: 0.4rem; }
+  .doors { width: 100%; }
+  .door { flex: 1 1 0; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.6rem; min-height: 64px; padding: 0.7rem 0.75rem 0.75rem 0.9rem; }
+  .door__hint { font-size: var(--step-tiny); }
+}
+@media (width < 24em) {
+  .nav__mark { font-size: 0.6875rem; letter-spacing: 0.04em; }
+}
+@media (width < 30em) {
+  .doors { flex-direction: column; gap: 3px; }
+  .door { min-height: 60px; }
+  .door:first-child { border-radius: 12px 12px 3px 3px; }
+  .door:last-child { border-radius: 3px 3px 12px 12px; }
+}
+
+/* ============================================================================
+   Grounds shared with lab.html: the summer-haze wash and the falls between grounds.
+   ============================================================================ */
+.day {
+  background: linear-gradient(to bottom, #D2D4CC 0%, var(--haze) 38%, #C3C6BD 100%);
+  --grain-o: 0.12;
+}
+.night { background: var(--lab); }
+
+/* Falls: text-free hand-offs between lab night and summer haze, finely eased, grained. */
+.fall { height: clamp(11rem, 42vh, 30rem); position: relative; isolation: isolate; --grain-mask: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%); }
+.fall--dawn, .fall--dusk {
+  --stops:
+    color-mix(in oklab, var(--lab) 100%, transparent) 0%,
+    color-mix(in oklab, var(--lab) 98.9%, transparent) 6.25%,
+    color-mix(in oklab, var(--lab) 95.7%, transparent) 12.5%,
+    color-mix(in oklab, var(--lab) 90.8%, transparent) 18.75%,
+    color-mix(in oklab, var(--lab) 84.4%, transparent) 25%,
+    color-mix(in oklab, var(--lab) 76.8%, transparent) 31.25%,
+    color-mix(in oklab, var(--lab) 68.4%, transparent) 37.5%,
+    color-mix(in oklab, var(--lab) 59.3%, transparent) 43.75%,
+    color-mix(in oklab, var(--lab) 50%, transparent) 50%,
+    color-mix(in oklab, var(--lab) 40.7%, transparent) 56.25%,
+    color-mix(in oklab, var(--lab) 31.6%, transparent) 62.5%,
+    color-mix(in oklab, var(--lab) 23.2%, transparent) 68.75%,
+    color-mix(in oklab, var(--lab) 15.6%, transparent) 75%,
+    color-mix(in oklab, var(--lab) 9.2%, transparent) 81.25%,
+    color-mix(in oklab, var(--lab) 4.3%, transparent) 87.5%,
+    color-mix(in oklab, var(--lab) 1.1%, transparent) 93.75%,
+    color-mix(in oklab, var(--lab) 0%, transparent) 100%;
+}
+.fall--dawn { background: linear-gradient(to bottom, var(--stops)); }
+/* Chapter 4's fall is longer: the page goes dark after the raid, then chapter 5 begins at night. */
+.fall--dusk { background: linear-gradient(to top, var(--stops)); height: clamp(16rem, 70vh, 44rem); }
+
+/* ============================================================================
+   The journal (DESIGN 11): nine chapters played on the world-line loom.
+   #journal is one stacking context. Bottom to top:
+     z -2  .run::before, .fall::before  the ground, in document space: the haze wash, the dawn and dusk falls,
+                                         lab night. The WebGL canvas is transparent, so this IS the loom's ground
+                                         too, and the two can never seam.
+     z  0  .loom                        the sticky stage loom.js draws into (canvas + projected labels), in .loom-wrap
+     z  0  .loom-map                    the static loom map, sticky inside each run (in .loom-map-wrap): the stage for no JS, reduced
+                                         motion and no WebGL; faded out once the WebGL loom is live
+     z  0  .run::after                  the scrim: the run's own ground, painted back over the loom behind the
+                                         text column only, feathered at both ends of the run
+     z  0  .journal::after              grain over ground, loom and scrim, never over the copy
+     z  1  .chapter, .gate              the copy: DOM, in flow, visible with or without any of the above
+   ============================================================================ */
+.journal {
+  position: relative;
+  isolation: isolate;
+  /* Text column: grid columns 1-5 (DESIGN 11). --text-end is its right edge from the viewport's left. */
+  --col: calc((min(100vw, var(--max-w)) - 2 * var(--margin) - 11 * var(--gutter)) / 12);
+  --text-end: calc(max(0px, (100vw - var(--max-w)) / 2) + var(--margin) + 5 * var(--col) + 4 * var(--gutter));
+  --dawn-h: clamp(10rem, 34vh, 24rem);
+  --feather: clamp(8rem, 26vh, 16rem);
+  /* Yarn inks for the map, the ledger threads and the projected labels (the WebGL shader grades its own). */
+  --loom-a: #97463B;  --loom-a-2: #7A362E;
+  --loom-b: #4A6888;  --loom-b-2: #36516C;
+  --loom-sg: #F4F2EB; --loom-sg-2: #DCDAD0; --loom-sg-lit: #FAF9F4;
+  --loom-path: var(--nx-glow);
+}
+.journal .run--night, .journal .fall--dusk {
+  --loom-a: #8C4438;  --loom-a-2: #6A3029;
+  --loom-b: #4F6E8F;  --loom-b-2: #3A5570;
+  --loom-sg: #6F6E66; --loom-sg-2: #3A3A36; --loom-sg-lit: #E8E6DC;
+}
+.journal::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: var(--grain) 0 0 / 220px 220px;
+  opacity: 0.1;
+  mix-blend-mode: soft-light;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--dawn-h), #000 calc(100% - 30vh), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--dawn-h), #000 calc(100% - 30vh), transparent 100%);
+}
+
+/* ---- Ground ------------------------------------------------------------------ */
+.journal .run { position: relative; display: flow-root; }   /* no child margin escapes the run's ground */
+.journal .run::before { content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+.journal .run--day::before { background: linear-gradient(to bottom, #D2D4CC 0%, var(--haze) 38%, #C3C6BD 100%); }
+.journal .run--night::before { background: var(--lab); }
+/* Inside the journal a fall is only ground: no stacking context of its own (the shared rule isolates it), or its
+   gradient would paint over the loom stage. */
+.journal .fall { position: relative; background: none; isolation: auto; }
+.journal .fall::before { content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+.journal .fall--dawn { height: var(--dawn-h); }
+.journal .fall--dawn::before { background: linear-gradient(to bottom, var(--stops)); }
+/* Between the runs the dusk carries its own opaque ramp: afternoon haze down to lab night, finely eased. */
+.journal .fall--dusk { height: clamp(15rem, 56vh, 34rem); }
+.journal .fall--dusk::before {
+  background: linear-gradient(to bottom,
+    #C3C6BD 0%, #C1C4BB 6.25%, #BABDB4 12.5%, #AFB2A9 18.75%, #A0A39B 25%, #8F918A 31.25%, #7B7D77 37.5%,
+    #676963 43.75%, #53554F 50%, #40423D 56.25%, #2F312C 62.5%, #22241F 68.75%, #181A16 75%, #121310 81.25%,
+    #0F100E 87.5%, #0E0F0D 93.75%, #0E0F0D 100%);
+}
+
+/* ---- The loom stage (sticky, full viewport; loom.js fills it) ------------------
+   Each sticky box sits in an absolutely placed wrapper the size of its section (#journal for the stage, the run
+   for its map), so it travels within that section only: no negative margins, and no overhang past the section's
+   end (a sticky box with a -100svh margin would hang a whole viewport past it). */
+.loom-wrap, .loom-map-wrap { position: absolute; inset: 0; pointer-events: none; }
+.journal .run--day > .loom-map-wrap { top: var(--dawn-h); }
+.loom, .loom-map {
+  position: sticky; top: 0;
+  height: 100vh; height: 100svh;
+  z-index: 0;
+  pointer-events: none;
+}
+.loom { overflow: hidden; }
+/* The stage ends where #journal ends (the composer scrolls up over nothing): its lower edge dissolves, so the yarn
+   is never cut by a hard line as the journal leaves. */
+@media (width >= 48em) {
+  .loom { -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 80%, transparent 100%); mask-image: linear-gradient(to bottom, #000 0, #000 80%, transparent 100%); }
+}
+.loom canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.loom__labels { position: absolute; inset: 0; }
+/* Projected labels (loom.js): aria-hidden duplicates of the values in the copy, set as annotations with a
+   hairline leader to the point on the cord they name. A ground-coloured halo keeps them legible over yarn. */
+.loom__label {
+  position: absolute; left: 0; top: 0;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.loom__value {
+  display: block;
+  font: 400 0.8125rem/1 var(--font-mono);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums slashed-zero;
+  white-space: nowrap;
+  text-shadow: 0 0 2px var(--halo, transparent), 0 0 6px var(--halo, transparent), 0 0 12px var(--halo, transparent);
+}
+.loom__label--knot .loom__value { font: italic 400 0.9375rem/1 var(--font-display); letter-spacing: 0; }
+.loom__leader {
+  position: absolute; left: 0; top: 0;
+  width: 1px; border-radius: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* ---- The static map: the same loom as a drawing (tools/render_loom_svg.py) ------ */
+.loom-map { color: var(--fg); transition: opacity var(--dur-4) var(--ease-enter), visibility 0s linear 0s; }
+.loom-map svg {
+  /* An absolutely placed <svg> does not stretch between its insets (it is sized like a replaced element), so the
+     box is given explicitly: the loom's half of the stage, clear of the nav. */
+  position: absolute;
+  top: calc(var(--nav-h) + 1rem);
+  left: calc(var(--text-end) + 3vw);
+  width: calc(100% - var(--text-end) - 3vw - var(--margin));
+  height: calc(100% - var(--nav-h) - 2.25rem);
+  max-width: none;
+  overflow: visible;
+  /* The drawing enters and leaves soft, never as a hard cut while its run scrolls in or out. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%);
+}
+/* The WebGL loom is live: the map steps back under it (it returns if the loom is disposed). */
+.journal[data-loom="live"] .loom-map { opacity: 0; visibility: hidden; transition: opacity var(--dur-4) var(--ease-exit), visibility 0s linear var(--dur-4); }
+
+/* ---- The scrim: the ground painted back behind the text column -------------------- */
+.journal .run::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 0; pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(to right, #000 0, #000 calc(var(--text-end) + 1.5rem), rgb(0 0 0 / 0.93) calc(var(--text-end) + 3vw),
+      rgb(0 0 0 / 0.78) calc(var(--text-end) + 6vw), rgb(0 0 0 / 0.55) calc(var(--text-end) + 9vw),
+      rgb(0 0 0 / 0.32) calc(var(--text-end) + 12vw), rgb(0 0 0 / 0.14) calc(var(--text-end) + 15vw),
+      rgb(0 0 0 / 0.04) calc(var(--text-end) + 18vw), transparent calc(var(--text-end) + 21vw)),
+    linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 0.5) calc(var(--feather-top) * 0.5), #000 var(--feather-top),
+      #000 calc(100% - var(--feather)), rgb(0 0 0 / 0.5) calc(100% - var(--feather) * 0.5), transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, #000 0, #000 calc(var(--text-end) + 1.5rem), rgb(0 0 0 / 0.93) calc(var(--text-end) + 3vw),
+      rgb(0 0 0 / 0.78) calc(var(--text-end) + 6vw), rgb(0 0 0 / 0.55) calc(var(--text-end) + 9vw),
+      rgb(0 0 0 / 0.32) calc(var(--text-end) + 12vw), rgb(0 0 0 / 0.14) calc(var(--text-end) + 15vw),
+      rgb(0 0 0 / 0.04) calc(var(--text-end) + 18vw), transparent calc(var(--text-end) + 21vw)),
+    linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 0.5) calc(var(--feather-top) * 0.5), #000 var(--feather-top),
+      #000 calc(100% - var(--feather)), rgb(0 0 0 / 0.5) calc(100% - var(--feather) * 0.5), transparent 100%);
+  mask-composite: intersect;
+}
+/* Day: the same wash as the ground, starting under the dawn (the dawn's night must not be painted over), with a
+   short top feather that the first chapter's padding clears. Night: the feather reaches up into the lower half of
+   the dusk fall, which is already lab night, so the spoiler gate at the top of the night run sits on the full scrim. */
+.journal .run--day::after { top: var(--dawn-h); --feather-top: 11vh; background: linear-gradient(to bottom, #D0D2CA 0%, var(--haze) 30%, #C3C6BD 100%); }
+.journal .run--night::after { top: calc(-1 * var(--feather)); --feather-top: var(--feather); background: var(--lab); }
+/* The first chapter clears the day scrim's short top feather (11vh) before its first word. */
+.journal .run--day > .loom-map-wrap + .chapter { padding-top: clamp(5rem, 13vh, 8rem); }
+
+/* ---- Copy layer ----------------------------------------------------------------
+   Chapters and the gate stay out of the stacking business (no z-index on the section), so every scrim (z 0) sits
+   under every word (z 1): a later block's backing can never wash over an earlier block's text. */
+.journal .chapter, .journal .gate { position: relative; }
+.journal .chapter__grid, .journal .gate > * { position: relative; z-index: 1; }
+
+/* Chapters (DESIGN 11, 12.5): one column on the left. A meta row, the title, a one-sentence TL;DR, the shift the
+   chapter makes (a ledger row, always visible), "Read the full chapter", then the way to the next one. */
+.chapter { padding-top: clamp(1.75rem, 1.25rem + 1.5vw, 3rem); padding-bottom: clamp(4rem, 14vh, 9rem); }
+.chapter__grid { row-gap: 0; }
+.rail {
+  grid-column: 1 / span 5; grid-row: 1;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1.15rem;
+  margin-bottom: clamp(0.85rem, 0.6rem + 0.8vw, 1.4rem);
+}
+.rail__num {
+  font: italic 400 clamp(2.25rem, 1.6rem + 1.6vw, 3.25rem)/0.85 var(--font-display);
+  letter-spacing: -0.01em;
+}
+.rail__spoiler, .gate__flag, .index__spoiler, .wl-nav__spoiler, .turn__spoiler {
+  font: italic 400 1.1875rem/1 var(--font-display);
+  display: inline-flex; align-items: center; gap: 0.45rem;
+}
+/* The spoiler mark: a half-lit disc, the site's one glyph for "the second half". */
+.rail__spoiler::before, .gate__flag::before, .index__spoiler::before, .wl-nav__spoiler::before, .turn__spoiler::before {
+  content: ""; flex: none; width: 0.55em; height: 0.55em; border-radius: 50%;
+  border: 1.5px solid currentColor;
+  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+}
+.rail__meta { display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; }
+.rail__meta > div { display: flex; align-items: baseline; gap: 0.45em; }
+.rail__meta dt { font: 500 var(--step-tiny)/1.3 var(--font-text); color: var(--ink-meta); }
+.rail__meta dd { font: 400 var(--step-small)/1.4 var(--font-text); }
+.rail__meta time, .rail__meta .mono { font-family: var(--font-mono); font-size: var(--step-small); font-variant-numeric: tabular-nums slashed-zero; }
+.rail__skip { flex-basis: 100%; font: 500 var(--step-small)/1.4 var(--font-text); }
+.rail__skip a { display: inline-flex; align-items: center; min-height: 32px; transition: color var(--dur-2) var(--ease-micro); }
+.rail__skip a:hover { color: var(--ink-meta); }
+
+.chapter__body { grid-column: 1 / span 5; grid-row: 2; min-width: 0; }
+.chapter__body--after { grid-row: 4; }
+.chapter__title {
+  font: 400 var(--step-chapter-loom)/var(--lh-chapter) var(--font-display);
+  letter-spacing: var(--tracking-chapter);
+  text-wrap: balance;
+  margin-bottom: clamp(0.9rem, 0.6rem + 0.9vw, 1.5rem);
+  font-kerning: normal;
+}
+.chapter__aside {
+  display: block;
+  margin-top: 0.3em;
+  font-size: max(1.375rem, 0.36em);
+  font-style: italic;
+  letter-spacing: 0;
+  line-height: 1.1;
+  color: color-mix(in oklab, var(--fg) 76%, var(--bg));   /* a step past --ink-meta: it sits over the stage */
+}
+/* The TL;DR: the chapter in one sentence, in the journal's voice, always visible (DESIGN 12.5). */
+.chapter__tldr {
+  max-width: 31ch;
+  font: 400 clamp(1.4375rem, 1.23rem + 0.857vw, 2rem)/1.24 var(--font-display);
+  letter-spacing: -0.006em;
+  text-wrap: pretty;
+}
+.prose p { max-width: var(--measure-text); text-wrap: pretty; }
+.prose p + p { margin-top: 1em; }
+
+/* "Read the full chapter": a quiet control in the text face with a drawn plus; the prose opens beneath it. */
+.chapter__more { margin-top: clamp(1.1rem, 0.8rem + 0.9vw, 1.6rem); }
+.chapter__more > summary { list-style: none; }
+.chapter__more > summary::-webkit-details-marker { display: none; }
+.chapter__more > summary {
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  min-height: 44px; padding: 0 0.85rem; margin-left: -0.85rem;
+  border-radius: 8px;
+  font: 500 var(--step-small)/1 var(--font-text);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.chapter__more > summary:hover { background: color-mix(in oklab, var(--fg) 8%, transparent); }
+.chapter__more > summary:focus-visible { outline-offset: 0; }
+.more__glyph { position: relative; width: 11px; height: 11px; flex: none; }
+.more__glyph::before, .more__glyph::after {
+  content: ""; position: absolute; left: 50%; top: 50%; border-radius: 1px; background: currentColor;
+  translate: -50% -50%;
+}
+.more__glyph::before { width: 11px; height: 1.6px; }
+.more__glyph::after { width: 1.6px; height: 11px; transition: opacity var(--dur-2) var(--ease-micro); }
+.chapter__more[open] > summary .more__glyph::after { opacity: 0; }
+.chapter__more > .prose { padding: clamp(0.9rem, 0.7rem + 0.6vw, 1.25rem) 0 0.25rem; }
+
+/* The way on: the previous and next chapter, the drawn diagonal arrow, a tonal step on hover. */
+.turn {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1.5rem;
+  margin-top: clamp(1.1rem, 0.8rem + 0.9vw, 1.75rem);
+  font: 500 var(--step-small)/1.3 var(--font-text);
+}
+.turn a {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  min-height: 44px; padding: 0 0.6rem; margin-inline: -0.6rem;
+  border-radius: 7px; text-decoration: none;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.turn a:hover { background: color-mix(in oklab, var(--fg) 8%, transparent); }
+.turn__next { margin-left: auto !important; }
+.turn__num { font: italic 400 1.0625rem/1 var(--font-display); color: color-mix(in oklab, var(--fg) 76%, var(--bg)); }
+.turn__arrow { width: 0.8rem; height: 0.8rem; flex: none; overflow: visible; }
+/* the spoiler mark on the way into the gate, only while the gate is shut (the word is for screen readers) */
+.turn__spoiler { display: none; gap: 0; margin-left: 0.1rem; font-size: 1rem; }
+.turn__spoiler::before { width: 0.62rem; height: 0.62rem; }
+:root:has(#spoilers:not([open])) .turn__spoiler { display: inline-flex; }
+
+/* ---- The shift ledger: annotations tied to their threads, never cards ----------------
+   Each row hangs from a short length of α thread (rounded, in the yarn's own red). The row whose line is current
+   pulls that thread taut and full-strength; hovering or focusing a row (with the WebGL loom live) lights its
+   thread in the loom. No fills, no borders, no boxes. */
+.ledger { list-style: none; padding: 0; margin: clamp(1.4rem, 1rem + 1.2vw, 2.25rem) 0 1.25rem; display: grid; }
+.ledger--one { margin-bottom: 0; }
+.ledger__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "date read" "who who";
+  column-gap: 1rem; row-gap: 0.4rem;
+  align-items: baseline;
+  padding: 1.05rem 0 1.2rem;
+  border-radius: 3px;
+  --thread-c: var(--loom-a);
+  --thread: color-mix(in oklab, var(--thread-c) 52%, var(--bg));
+}
+/* A row's thread is the yarn of the line it lands on: alpha red, beta blue, the pale Steins Gate thread. */
+.ledger__row[data-field="b"] { --thread-c: var(--loom-b); }
+.ledger__row[data-field="sg"] { --thread-c: var(--loom-sg-lit); }
+.ledger__row--hold::before { background: repeating-linear-gradient(to right, var(--thread) 0 9px, transparent 9px 14px); }
+.ledger__row::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0;
+  height: 1.5px; border-radius: 1px;
+  background: var(--thread);
+  transition: background-color var(--dur-3) var(--ease-enter), height var(--dur-3) var(--ease-enter);
+}
+.ledger__row.is-current, .ledger__row.is-lit { --thread: var(--thread-c); }
+.ledger__row.is-current::before { height: 2px; }
+.ledger__row[tabindex]:focus-visible { outline-offset: 4px; }
+.ledger__date { grid-area: date; font: 400 var(--step-small)/1.5 var(--font-mono); color: var(--ink-meta); font-variant-numeric: tabular-nums; }
+.ledger__who { grid-area: who; }
+.ledger__sender { font: 400 var(--step-sub)/1.1 var(--font-display); letter-spacing: -0.01em; }
+.ledger__what { margin-top: 0.35rem; font: 400 1rem/1.45 var(--font-text); max-width: 48ch; }
+.ledger__read {
+  grid-area: read; justify-self: end;
+  display: flex; align-items: baseline; white-space: nowrap;
+  font: 400 var(--step-small)/1.3 var(--font-mono);
+  color: var(--ink-meta);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.ledger__to { color: var(--fg); font-size: 1.1875rem; }
+.ledger__arrow::before { content: "→"; margin-inline: 0.5em; }
+.ledger__note { max-width: 52ch; font: 400 var(--step-small)/1.5 var(--font-text); color: var(--ink-meta); }
+/* Chapter 6 undoes chapter 3: each row reads backwards, after ← before. DOM order stays logical. */
+.ledger--mirror .ledger__read { flex-direction: row-reverse; }
+.ledger--mirror .ledger__arrow::before { content: "←"; }
+
+/* ---- Phones: full-bleed stage, the copy full width, a stronger scrim per text block --------
+   The backing wraps each block's words only (never its padding), so the long gaps between chapters are open
+   windows onto the loom. */
+@media (width < 48em) {
+  .journal { --text-end: 100vw; --feather: 12vh; --ch-pb: clamp(6rem, 34vh, 18rem); }
+  .journal .run::after { display: none; }
+  .journal .chapter::before, .journal .gate::before {
+    content: ""; position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none;
+    background: color-mix(in srgb, var(--bg) 95%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 0.55) 3.5vh, #000 7vh, #000 calc(100% - 7vh), rgb(0 0 0 / 0.55) calc(100% - 3.5vh), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, rgb(0 0 0 / 0.55) 3.5vh, #000 7vh, #000 calc(100% - 7vh), rgb(0 0 0 / 0.55) calc(100% - 3.5vh), transparent 100%);
+  }
+  .journal .chapter::before { top: -7vh; bottom: calc(var(--ch-pb) - 7vh); }
+  .rail, .chapter__body { grid-column: 1 / -1; }
+  .chapter { padding-bottom: var(--ch-pb); }
+  .journal .run--day > .loom-map-wrap + .chapter { padding-top: clamp(5rem, 22vh, 11rem); }
+  .loom-map svg { left: 0.5rem; width: calc(100% - 1rem); top: calc(var(--nav-h) + 0.5rem); height: calc(100% - var(--nav-h) - 1rem); opacity: 0.8; }
+  .rail__num { font-size: 2.25rem; }
+  .ledger__to { font-size: 1.0625rem; }
+}
+
+/* ============================================================================
+   The monochrome blink (Reading Steiner): JS animates opacity 0 -> 1 -> 0 once per shift.
+   ============================================================================ */
+.steiner {
+  position: fixed; inset: 0; z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  -webkit-backdrop-filter: grayscale(1) contrast(1.08);
+  backdrop-filter: grayscale(1) contrast(1.08);
+}
+
+/* ============================================================================
+   D-mail composer (DESIGN 9): a clamshell drawn in CSS. DotGothic16 on the screen only.
+   ============================================================================ */
+.dmail { padding-block: var(--space-xl) var(--space-2xl); }
+.dmail__grid { row-gap: 3rem; align-items: start; }
+.dmail__copy { grid-column: 1 / span 6; }
+@media (width >= 64em) { .dmail__copy { position: sticky; top: calc(var(--nav-h, 60px) + 4rem); } }
+.dmail__title {
+  font: 400 var(--step-chapter)/var(--lh-chapter) var(--font-display);
+  letter-spacing: var(--tracking-chapter);
+  margin-bottom: clamp(1.75rem, 1rem + 2vw, 3rem);
+  text-wrap: balance;
+}
+.dmail__copy .prose p { max-width: 48ch; }
+.dmail__fine { font-size: var(--step-small); color: var(--ink-meta); }
+.phone { grid-column: 8 / span 4; justify-self: center; width: min(100%, 21.5rem); }
+@media (width < 64em) and (width >= 48em) { .dmail__copy { grid-column: 1 / span 6; } .phone { grid-column: 7 / span 6; } }
+@media (width < 48em) { .dmail__copy, .phone { grid-column: 1 / -1; } }
+
+.phone__lid {
+  position: relative;
+  padding: 1.1rem 1rem 1.15rem;
+  border-radius: 30px 30px 14px 14px;
+  background: linear-gradient(180deg, #2A2C28 0%, #242622 100%);
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.09), inset 0 0 0 1px rgb(214 217 207 / 0.035);
+}
+.phone__ear {
+  display: block; width: 3.4rem; height: 6px; margin: 0.15rem auto 0.95rem;
+  border-radius: 3px; background: #10110F;
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.6), 0 1px 0 rgb(214 217 207 / 0.06);
+}
+.phone__screen {
+  display: grid; gap: 0.55rem;
+  padding: 0.8rem 0.85rem 0.75rem;
+  border-radius: 8px;
+  background: var(--lcd);
+  color: var(--lcd-ink);
+  font-family: var(--font-phone);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.55), inset 0 2px 10px rgb(0 0 0 / 0.5);
+  --fg: var(--lcd-ink);
+}
+.phone__status {
+  display: flex; justify-content: space-between;
+  padding-bottom: 0.45rem;
+  font-size: 0.8125rem; line-height: 1.2; letter-spacing: 0.04em;
+  background: linear-gradient(to right, color-mix(in oklab, var(--lcd-ink) 30%, var(--lcd)), color-mix(in oklab, var(--lcd-ink) 30%, var(--lcd))) 0 100% / 100% 2px no-repeat;
+}
+.phone__label { font-size: 0.875rem; line-height: 1.2; }
+.phone__text {
+  display: block; width: 100%;
+  min-height: 5.6rem;
+  padding: 0.45rem 0.55rem;
+  border: 0; border-radius: 4px;
+  resize: none;
+  background: color-mix(in oklab, var(--lcd-ink) 6%, var(--lcd));
+  color: var(--lcd-ink);
+  font: 1rem/1.5 var(--font-phone);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--lcd-ink) 24%, transparent);
+  caret-color: var(--lcd-ink);
+}
+.phone__text:focus-visible { outline: 2px solid var(--lcd-ink); outline-offset: 2px; }
+.phone__count { font-size: 0.875rem; line-height: 1.2; text-align: right; font-variant-numeric: tabular-nums; transition: color var(--dur-2) var(--ease-micro); }
+/* The one live UI neon state: the counter at 36 / 36 (6.3:1 on the LCD) */
+.phone__count.is-full { color: var(--nx-glow); text-shadow: 0 0 0.4em color-mix(in srgb, var(--nx-halo) 45%, transparent); }
+.phone__response { min-height: 3.9em; font-size: 0.875rem; line-height: 1.3; }
+.phone__hinge {
+  height: 16px; margin-inline: 1.5rem;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #181A17 0%, #2F322C 45%, #1B1D19 100%);
+}
+.phone__base {
+  display: grid; gap: 0.85rem;
+  padding: 1rem 1rem 1.35rem;
+  border-radius: 14px 14px 32px 32px;
+  background: linear-gradient(180deg, #242622 0%, #1F211D 100%);
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.07), inset 0 0 0 1px rgb(214 217 207 / 0.03);
+  color: var(--lab-ink);
+  --fg: var(--lab-ink);
+}
+.phone__row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.phone__hours-label { font: 500 var(--step-small)/1.2 var(--font-text); }
+.phone__hours {
+  min-height: 44px; padding: 0 2.1rem 0 0.8rem;
+  border: 0; border-radius: 8px;
+  background: #2E302B url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23D6D9CF' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.8rem center;
+  font: 500 0.9375rem/1 var(--font-text);
+  font-variant-numeric: tabular-nums;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.phone__hours:hover { background-color: #363933; }
+.phone__send {
+  min-height: 52px;
+  border: 0; border-radius: 16px;
+  background: #3A3D37;
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.1);
+  color: var(--lab-ink);
+  font: 600 1.0625rem/1 var(--font-text);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.phone__send:hover { background: #454840; }
+.phone__send:active { background: #30332D; }
+.phone__keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45rem; }
+.phone__keys button {
+  display: grid; justify-items: center; align-content: center; gap: 1px;
+  min-height: 46px;
+  border: 0; border-radius: 11px;
+  background: #2C2E29;
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.06);
+  font: 500 1.0625rem/1 var(--font-text);
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.phone__keys button:hover { background: #353831; }
+.phone__keys button:active { background: #252723; }
+.phone__keys small { font: 500 0.75rem/1.1 var(--font-text); letter-spacing: 0.06em; color: color-mix(in oklab, var(--lab-ink) 80%, #2C2E29); }
+.phone__offline { margin-top: 1rem; font: 400 var(--step-small)/1.5 var(--font-text); color: var(--ink-meta); }
+.phone__offline:target { color: var(--fg); }
+
+/* ============================================================================
+   Footer: the bookend. The meter answers the hero (1.048596), then the sign-off.
+   ============================================================================ */
+.footer {
+  padding: var(--space-xl) 0 clamp(1.5rem, 3vw, 2.5rem);
+  display: grid; justify-items: center;
+  background: var(--lab);
+  color: var(--lab-ink);
+}
+.footer__meter { width: min(calc(100% - 2 * var(--margin)), 46rem); display: grid; place-items: center; }
+.footer__signoff {
+  margin: clamp(1.25rem, 1rem + 1.5vw, 2.25rem) 0 var(--space-xl);
+  padding-inline: var(--margin);
+  font: italic 400 var(--step-signoff)/1 var(--font-display);
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+.footer__grid {
+  width: 100%;
+  row-gap: 1.5rem;
+  font: 400 var(--step-small)/1.55 var(--font-text);
+  color: var(--ink-meta);
+}
+.footer__grid a { color: var(--fg); transition: color var(--dur-2) var(--ease-micro); }
+.footer__grid a:hover { color: var(--ink-meta); }
+.footer__nav { grid-column: 1 / span 3; display: grid; justify-items: start; gap: 0.1rem; }
+.footer__nav a { display: inline-flex; align-items: center; min-height: 32px; text-decoration: none; font-weight: 500; }
+.footer__credits { grid-column: 4 / span 4; max-width: 44ch; }
+.footer__legal { grid-column: 8 / span 5; max-width: 52ch; }
+.footer__toggle {
+  grid-column: 1 / -1; justify-self: start;
+  min-height: 36px; padding: 0 0.8rem; margin-left: -0.8rem;
+  border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+  font: 500 var(--step-small)/1 var(--font-text); color: var(--fg);
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.footer__toggle:hover { background: var(--ink-hover); }
+@media (width < 48em) {
+  .footer__nav, .footer__credits, .footer__legal { grid-column: 1 / -1; }
+}
+
+/* ============================================================================
+   lab.html
+   ============================================================================ */
+.lab-hero {
+  padding: calc(var(--nav-h) + clamp(3rem, 2rem + 6vw, 8rem)) 0 var(--space-xl);
+  background:
+    linear-gradient(to bottom,
+      rgb(242 240 232 / 0.11) 0%, rgb(242 240 232 / 0.08) 10%, rgb(242 240 232 / 0.045) 24%,
+      rgb(242 240 232 / 0.018) 40%, rgb(242 240 232 / 0) 60%),
+    var(--lab);
+}
+.lab-hero h1 {
+  grid-column: 1 / span 9;
+  font: 400 var(--step-chapter)/var(--lh-chapter) var(--font-display);
+  letter-spacing: var(--tracking-chapter);
+  text-wrap: balance;
+}
+.lab-hero__lead { grid-column: 5 / span 7; margin-top: 2rem; max-width: var(--measure-text); }
+.lab-hero__note { grid-column: 5 / span 7; margin-top: 1rem; font-size: var(--step-small); color: var(--ink-meta); }
+.lab-section { padding-block: var(--space-xl); }
+.lab-section__title {
+  grid-column: 1 / span 4;
+  font: 400 clamp(2.25rem, 1.6rem + 2.6vw, 4.5rem)/0.95 var(--font-display);
+  letter-spacing: -0.02em;
+  align-self: start;
+}
+.lab-section__lead { grid-column: 5 / span 7; max-width: var(--measure-text); }
+.lab-section__body { grid-column: 1 / -1; margin-top: var(--space-l); }
+@media (width < 48em) {
+  .lab-hero h1, .lab-hero__lead, .lab-hero__note, .lab-section__title, .lab-section__lead { grid-column: 1 / -1; }
+  .lab-section__lead { margin-top: 1.25rem; }
+}
+
+/* Members: a real table; rows show their world line on the mini meter on hover/focus. */
+.members { width: 100%; border-collapse: collapse; }
+.members th {
+  padding: 0 0.85rem 0.75rem;
+  text-align: left; vertical-align: bottom;
+  font: 500 var(--step-tiny)/1.3 var(--font-text); color: var(--ink-meta);
+}
+.members td { padding: 1.1rem 0.85rem 1.2rem; vertical-align: baseline; border-top: 1px solid var(--ink-12); }
+.members tbody tr { transition: background-color var(--dur-2) var(--ease-micro); cursor: default; }
+.members tbody tr:is(:hover, :focus-visible, .is-current) { background: var(--raise); }
+.members tbody tr:focus-visible { outline-offset: -2px; }
+.members__no { font: 400 var(--step-small)/1.4 var(--font-mono); color: var(--ink-meta); width: 4.5rem; font-variant-numeric: tabular-nums; }
+.members__name { font: 400 var(--step-sub)/1.1 var(--font-display); white-space: nowrap; }
+.members__name small { display: block; margin-top: 0.3rem; font: 400 var(--step-small)/1.35 var(--font-text); color: var(--ink-meta); white-space: normal; }
+.members__role { font-size: 1rem; max-width: 26ch; }
+.members__turn { font-size: 1rem; max-width: 40ch; }
+.members__wl { font: 400 var(--step-small)/1.4 var(--font-mono); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums slashed-zero; }
+.members th:last-child { text-align: right; }
+.badge-note { margin-top: 1.5rem; font-size: var(--step-small); color: var(--ink-meta); }
+@media (width < 60em) {
+  .members, .members tbody, .members tr, .members td { display: block; }
+  .members thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .members tbody tr { display: grid; grid-template-columns: auto 1fr auto; column-gap: 0.85rem; padding: 1rem 0.85rem; border-top: 1px solid var(--ink-12); border-radius: 0; }
+  .members td { padding: 0; border: 0; }
+  .members__no { grid-column: 1; grid-row: 1; width: auto; }
+  .members__name { grid-column: 2; grid-row: 1; white-space: normal; }
+  .members__wl { grid-column: 3; grid-row: 1; }
+  .members__role, .members__turn { grid-column: 1 / -1; max-width: none; margin-top: 0.5rem; }
+  .members__role::before, .members__turn::before { content: attr(data-label) ": "; font-weight: 600; }
+}
+
+/* Glossary */
+.glossary { columns: 2 22rem; column-gap: calc(var(--gutter) * 2.5); }
+.glossary > div { break-inside: avoid; padding: 0 0 1.6rem; }
+.glossary dt { font: 400 1.5rem/1.15 var(--font-display); letter-spacing: -0.005em; }
+.glossary dd { margin-top: 0.4rem; font-size: 1rem; line-height: 1.5; max-width: 52ch; }
+.glossary dd .mono { font-size: 0.9375rem; }
+
+/* Places: a diagram (approximate) beside the fiction-to-real table */
+.places { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); column-gap: var(--gutter); row-gap: var(--space-l); align-items: start; }
+.places__map { grid-column: 1 / span 5; position: sticky; top: calc(var(--nav-h) + 2rem); }
+.places__map svg { width: 100%; height: auto; }
+.places__map figcaption { margin-top: 0.75rem; font-size: var(--step-small); color: var(--ink-meta); max-width: 44ch; }
+.places__table { grid-column: 6 / span 7; }
+.map-road { fill: none; stroke: var(--ink-24); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.map-rail { fill: none; stroke: var(--ink-60); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 0.1 9; }
+.map-river { fill: none; stroke: color-mix(in oklab, var(--fg) 18%, var(--bg)); stroke-width: 18; stroke-linecap: round; }
+.map-pin { fill: var(--bg); stroke: var(--fg); stroke-width: 2.25; }
+.map-pin--main { fill: var(--fg); }
+.map-station { fill: var(--bg); stroke: var(--fg); stroke-width: 2; }
+.map-label { fill: var(--fg); font: 500 15px/1 var(--font-text); }
+.map-label--small { fill: var(--ink-meta); font: 400 13px/1 var(--font-text); }
+.map-label--road { fill: var(--ink-meta); font: italic 400 14px/1 var(--font-display); letter-spacing: 0.02em; }
+.map-lead { fill: none; stroke: var(--fg); stroke-width: 1.25; stroke-linecap: round; }
+/* The SVG scales to ~0.76 at 390px: raise the label sizes so none lands under 12px there. */
+@media (width < 48em) {
+  .map-label, .map-label--small, .map-label--road { font-size: 16.5px; }
+}
+/* Cartographic halo: labels knock the roads, rail and river out behind them. */
+.map-label, .map-label--small, .map-label--road { paint-order: stroke; stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; }
+.places-table { width: 100%; border-collapse: collapse; }
+.places-table th { padding: 0 0.75rem 0.7rem 0; text-align: left; font: 500 var(--step-tiny)/1.3 var(--font-text); color: var(--ink-meta); }
+.places-table td { padding: 0.95rem 0.75rem 1rem 0; vertical-align: baseline; border-top: 1px solid var(--ink-12); font-size: 1rem; line-height: 1.45; }
+.places-table td:first-child { font: 400 1.25rem/1.2 var(--font-display); width: 30%; }
+.places-table td:last-child { width: 36%; }
+@media (width < 60em) {
+  .places__map, .places__table { grid-column: 1 / -1; position: static; }
+  .places__map { max-width: 30rem; }
+}
+@media (width < 48em) {
+  .places-table, .places-table tbody, .places-table tr, .places-table td { display: block; }
+  .places-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .places-table tr { padding: 1rem 0; border-top: 1px solid var(--ink-12); }
+  .places-table td { padding: 0; border: 0; width: auto !important; }
+  .places-table td + td { margin-top: 0.45rem; }
+  .places-table td:not(:first-child)::before { content: attr(data-label) ": "; font-weight: 600; }
+}
+
+/* Fall on lab.html between the members (lab) and the glossary (haze) */
+.lab-day { background: linear-gradient(to bottom, #D2D4CC 0%, var(--haze) 45%, #C3C6BD 100%); --grain-o: 0.12; }
+
+/* ============================================================================
+   404: world line not found
+   ============================================================================ */
+.lost {
+  min-height: 100svh;
+  display: grid; align-content: center; justify-items: center;
+  gap: clamp(1.5rem, 1rem + 2vw, 2.75rem);
+  padding: calc(var(--nav-h) + 2rem) var(--margin) 4rem;
+  text-align: center;
+  background:
+    linear-gradient(to bottom,
+      rgb(242 240 232 / 0.14) 0%, rgb(242 240 232 / 0.08) 12%, rgb(242 240 232 / 0.035) 24%, rgb(242 240 232 / 0) 38%),
+    var(--lab);
+  --grain-o: 0.1;
+  --grain-mask: linear-gradient(to bottom, #000 60%, transparent 100%);
+}
+.lost__meter { width: min(100%, 52rem); display: grid; place-items: center; }
+.lost__title {
+  font: 400 var(--step-chapter)/var(--lh-chapter) var(--font-display);
+  letter-spacing: var(--tracking-chapter);
+  text-wrap: balance;
+  max-width: 14ch;
+}
+.lost__line { font: italic 400 clamp(1.1875rem, 1.05rem + 0.45vw, 1.5rem)/1.4 var(--font-display); color: var(--ink-meta); max-width: 40ch; }
+.lost__home { margin-top: calc(-1 * clamp(0.5rem, 0.25rem + 1vw, 1.25rem)); }
+.lost__value { font-family: var(--font-mono); font-size: 0.82em; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+
+/* ============================================================================
+   v3 (DESIGN 12): newcomers, less scrolling, more ways in
+   ============================================================================ */
+
+/* ---- The primer (12.2): an annotated figure, not a card grid ------------------------------
+   Lab night after the hero. The four ideas are annotations round one drawing of three threads; their demos sit
+   inside them (a link, the threads themselves, a meter, a sentence). Columns come from the page grid and from
+   source order (auto-placement), so phones simply stack. */
+.primer {
+  position: relative;
+  padding: clamp(5rem, 13vh, 9rem) 0 clamp(2rem, 5vh, 3.5rem);
+  background: var(--lab);
+  --grain-o: 0.07;
+  --grain-mask: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
+}
+.primer__grid { align-items: start; }
+.primer__title {
+  grid-column: 1 / span 9;
+  font: 400 var(--step-chapter-loom)/var(--lh-chapter) var(--font-display);
+  letter-spacing: var(--tracking-chapter);
+  text-wrap: balance;
+}
+.primer__lede {
+  grid-column: 1 / span 6;
+  margin-top: clamp(1.1rem, 0.8rem + 1vw, 1.75rem);
+  max-width: 52ch;
+  font: 400 clamp(1.125rem, 1.02rem + 0.35vw, 1.3125rem)/1.5 var(--font-text);
+}
+.primer__time {
+  grid-column: 9 / span 4;
+  align-self: end; justify-self: end; text-align: right;
+  max-width: 22ch; text-wrap: balance;
+  font: italic 400 clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem)/1.35 var(--font-display);
+  color: color-mix(in oklab, var(--fg) 76%, var(--bg));
+}
+.idea { margin-top: clamp(2.75rem, 2rem + 2vw, 4rem); min-width: 0; }
+.idea--dmail { grid-column: 1 / span 4; }
+.idea--lines { grid-column: 5 / span 4; }
+.idea--meter { grid-column: 9 / span 4; }
+.idea__term { font: italic 400 clamp(1.625rem, 1.35rem + 0.9vw, 2.25rem)/1.05 var(--font-display); letter-spacing: -0.01em; }
+.idea__text { margin-top: 0.75rem; max-width: 42ch; font: 400 1rem/1.58 var(--font-text); }
+.idea__try, .idea__hint { margin-top: 0.7rem; font: 500 var(--step-small)/1.4 var(--font-text); }
+.idea__hint { font-weight: 400; color: var(--ink-meta); }
+.idea__hint[hidden] { display: none; }
+.idea__try a {
+  display: inline-flex; align-items: center; gap: 0.5rem; min-height: 44px;
+  text-decoration-color: color-mix(in oklab, var(--fg) 45%, var(--bg));
+  transition: color var(--dur-2) var(--ease-micro);
+}
+.idea__try a:hover { color: var(--ink-meta); }
+.idea__arrow { width: 0.75rem; height: 0.75rem; flex: none; overflow: visible; }
+
+/* The meter demo: a small DOM meter; a transparent button over it re-reads the line (like the nav meter). */
+.probe { position: relative; display: inline-grid; margin-top: 1.2rem; }
+.probe__slot { display: grid; justify-items: start; }
+.nx--probe { --nx-span: min(19rem, calc(100vw - 2 * var(--margin))); --nx-sw-sheath: 3.4; --nx-sw-core: 1.45; --nx-sw-wire: 1.3; }
+.probe__slot:empty::before { content: attr(data-reading); font: 400 2.5rem/1 var(--font-display); color: var(--ink-60); }
+.probe__btn { position: absolute; inset: -8px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; }
+.probe__btn[hidden] { display: none; }
+.probe__btn:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 0; }
+
+/* The figure: three threads tied into one bundle (tools/render_primer_svg.py writes the drawing and the labels). */
+.lines { grid-column: 1 / -1; position: relative; margin: clamp(1.5rem, 1rem + 1.6vw, 2.75rem) 0 0; }
+.lines__art { position: relative; }
+.lines__svg { display: block; width: 100%; height: auto; overflow: visible; }
+.lines__svg--tall { display: none; }
+.lines__thread { --c: #8C4438; --c2: #6A3029; transition: opacity var(--dur-2) var(--ease-micro), filter var(--dur-2) var(--ease-micro); }
+.lines__thread--b { --c: #4F6E8F; --c2: #3A5570; }
+.lines__band { fill: var(--c); stroke: var(--c2); stroke-width: 0.8; }
+.lines__ply { fill: none; stroke: var(--c2); stroke-width: 1.5; opacity: 0.9; }
+.lines__sheen { fill: none; stroke: rgb(236 232 222 / 0.16); stroke-width: 1.1; stroke-linecap: round; }
+.lines__tie rect { fill: #B9B6AA; }
+.lines__tie path { fill: none; stroke: #7E7B71; stroke-width: 1.1; stroke-linecap: round; }
+.lines__trail { fill: none; stroke: var(--nx-glow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.lines__trail--b { opacity: 0.85; transition: opacity var(--dur-4) var(--ease-enter); }
+.lines__arc, .lines__trail--a { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; }
+.lines__arc { fill: none; stroke: var(--nx-glow); stroke-width: 2.2; stroke-linecap: round; }
+.lines[data-state="a"] .lines__arc, .lines[data-state="a"] .lines__trail--a { stroke-dashoffset: 0; opacity: 0.9; }
+.lines[data-state="a"] .lines__trail--b { opacity: 0.32; }
+.lines__halo { fill: var(--nx-halo); opacity: 0.2; }
+.lines__bead { fill: var(--nx-glow); }
+.lines__core { fill: var(--nx-core); }
+.lines__labels { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; pointer-events: none; }
+.lines__label {
+  position: absolute; left: calc(var(--label-x) + 1rem); translate: 0 -50%;
+  display: flex; align-items: baseline; gap: 0.4rem;
+  font: 400 var(--step-small)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-meta);
+  transition: color var(--dur-2) var(--ease-micro);
+}
+.lines__label--b { top: var(--row-b); }
+.lines__label--a1 { top: var(--row-a1); }
+.lines__label--a2 { top: var(--row-a2); }
+.lines__field { font: italic 400 1rem/1 var(--font-display); }
+/* the thread the spark is on reads in full ink */
+.lines:not([data-state="a"]) .lines__label--b, .lines[data-state="a"] .lines__label--a1 { color: var(--fg); }
+/* point at a thread: it steps up, the others step back (JS rows; without JS, hovering the yarn itself) */
+.lines[data-lit] .lines__thread { opacity: 0.34; }
+.lines[data-lit="b"] .lines__thread--b, .lines[data-lit="a1"] .lines__thread--a1, .lines[data-lit="a2"] .lines__thread--a2 { opacity: 1; filter: brightness(1.3); }
+.lines[data-lit="b"] .lines__label--b, .lines[data-lit="a1"] .lines__label--a1, .lines[data-lit="a2"] .lines__label--a2 { color: var(--fg); }
+.lines:not([data-lit]) .lines__svg:has(.lines__thread:hover) .lines__thread:not(:hover) { opacity: 0.34; }
+.lines:not([data-lit]) .lines__thread:hover { filter: brightness(1.3); }
+.lines__hit {
+  position: absolute; left: 0; right: 0; height: 40px; translate: 0 -50%;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer;
+}
+.lines__hit--b { top: var(--row-b); } .lines__hit--a1 { top: var(--row-a1); } .lines__hit--a2 { top: var(--row-a2); }
+.lines__hit:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 0; }
+
+/* Reading Steiner: one sentence that changes when you press Shift, in the site's monochrome blink. */
+.idea--steiner { grid-column: 1 / span 4; margin-top: clamp(2.75rem, 2rem + 2.2vw, 4.25rem); }
+.steiner-demo { grid-column: 6 / span 7; margin-top: clamp(2.75rem, 2rem + 2.2vw, 4.25rem); }
+.steiner-demo__line {
+  max-width: 33ch;
+  font: 400 clamp(1.625rem, 1.15rem + 1.8vw, 2.75rem)/1.16 var(--font-display);
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+.steiner-demo__swap { font-style: italic; }
+.steiner-demo__act { margin-top: 1.25rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.4rem; }
+.steiner-demo__note { max-width: 36ch; font: 400 var(--step-small)/1.45 var(--font-text); color: var(--ink-meta); }
+.shift-btn {
+  min-height: 48px; padding: 0 1.35rem;
+  border: 0; border-radius: 8px;
+  background: color-mix(in oklab, var(--fg) 8%, var(--bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 10%, transparent);
+  font: 500 1.25rem/1 var(--font-display);
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.shift-btn[hidden] { display: none; }
+.shift-btn:hover { background: color-mix(in oklab, var(--fg) 14%, var(--bg)); }
+.shift-btn:active { background: color-mix(in oklab, var(--fg) 4%, var(--bg)); }
+
+/* Who's who: the eight members as a typeset index (number, name, one line), each a link to the lab page. */
+.cast { grid-column: 1 / -1; margin-top: clamp(3.5rem, 2.5rem + 3vw, 5.5rem); }
+.cast__title { font: 400 clamp(2rem, 1.6rem + 1.4vw, 3rem)/1 var(--font-display); letter-spacing: -0.015em; }
+.cast__list {
+  list-style: none; padding: 0; margin-top: clamp(1.25rem, 1rem + 1vw, 2rem);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(1rem, 0.75rem + 1vw, 1.75rem) var(--gutter);
+}
+.cast__link {
+  display: grid; align-content: start; gap: 0.3rem;
+  height: 100%;
+  padding: 0.65rem 0.75rem 0.8rem; margin: -0.65rem -0.75rem;
+  border-radius: 9px; text-decoration: none;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.cast__link:hover { background: color-mix(in oklab, var(--fg) 7%, var(--bg)); }
+.cast__link:hover .cast__name { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.18em; text-decoration-color: color-mix(in oklab, var(--fg) 50%, var(--bg)); }
+.cast__no { font: 400 var(--step-tiny)/1 var(--font-mono); letter-spacing: 0.04em; color: var(--ink-meta); font-variant-numeric: tabular-nums slashed-zero; }
+.cast__name { font: 400 clamp(1.3125rem, 1.15rem + 0.5vw, 1.625rem)/1.12 var(--font-display); }
+.cast__what { font: 400 0.9375rem/1.45 var(--font-text); color: var(--ink-meta); text-wrap: pretty; }
+.cast__note { margin-top: 1.5rem; font: 400 var(--step-small)/1.45 var(--font-text); color: var(--ink-meta); }
+
+.primer__watch, .primer__go { margin-top: clamp(2.5rem, 2rem + 2vw, 4rem); align-self: center; }
+.primer__watch { grid-column: 1 / span 7; font: italic 400 clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem)/1.3 var(--font-display); }
+.primer__go { grid-column: 9 / span 4; justify-self: end; }
+
+@media (width < 64em) {
+  .primer__title { grid-column: 1 / -1; }
+  .primer__lede { grid-column: 1 / span 8; }
+  .primer__time { grid-column: 1 / span 8; justify-self: start; text-align: left; margin-top: 1rem; }
+  .idea--dmail { grid-column: 1 / span 6; }
+  .idea--lines { grid-column: 7 / span 6; }
+  .idea--meter { grid-column: 1 / span 8; }
+  .idea--steiner, .steiner-demo { grid-column: 1 / -1; }
+  .steiner-demo { margin-top: 1.5rem; }
+  .cast__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .primer__watch { grid-column: 1 / -1; }
+  .primer__go { grid-column: 1 / -1; justify-self: start; margin-top: 1.5rem; }
+}
+@media (width < 48em) {
+  .primer__grid > * { grid-column: 1 / -1 !important; }
+  .primer__time { max-width: none; }
+  .idea { margin-top: 2.75rem; }
+  .lines__svg--wide { display: none; }
+  .lines__svg--tall { display: block; }
+  .lines__label { left: calc(var(--label-x-tall) + 0.6rem); }
+  .lines__label--b, .lines__hit--b { top: var(--row-tall-b); }
+  .lines__label--a1, .lines__hit--a1 { top: var(--row-tall-a1); }
+  .lines__label--a2, .lines__hit--a2 { top: var(--row-tall-a2); }
+  .cast__list { column-gap: 1rem; }
+}
+
+/* ---- Set pieces (12.7): the hinge, the choice, the quiet ending ---------------------------- */
+/* Chapter 4: a poster-size date over the knot. No backing: at this size the numerals hold 3.6:1 or better over the
+   dim night yarn, and the cord passing behind them reads as depth. The knot sits just under them at the hit. */
+.chapter--hinge .poster {
+  grid-column: 1 / -1; grid-row: 3; justify-self: center;
+  position: relative;
+  margin: clamp(1.25rem, 5vh, 3.5rem) 0 clamp(1.75rem, 7vh, 4.5rem);
+  font: 400 clamp(4.5rem, 1.53rem + 12.19vw, 11.25rem)/0.9 var(--font-display);
+  letter-spacing: -0.03em;
+  font-variant-numeric: lining-nums;
+  text-align: center; white-space: nowrap;
+}
+.chapter--hinge .poster time { font-variant-numeric: lining-nums; }
+
+/* Chapter 7: the choice as a split. Two sides on one subgrid (their rows align whatever their length), each hung
+   from a length of its own yarn: beta blue for deleting the D-mail, alpha red for keeping it. The 1% barrier is the
+   dotted gap between them. The ground is painted a little further right than the run's scrim reaches. */
+.chapter--choice .choice {
+  grid-column: 1 / span 7; grid-row: 3;
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-rows: auto auto auto;
+  column-gap: clamp(1rem, 2.2vw, 2.25rem);
+  margin-top: clamp(1.75rem, 1.2rem + 1.8vw, 3rem);
+}
+.chapter--choice .choice::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  top: -3rem; bottom: -3rem; left: 0; right: -10vw;
+  background: linear-gradient(to right, var(--bg) 0, var(--bg) calc(100% - 13vw), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 3rem, #000 calc(100% - 3rem), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 3rem, #000 calc(100% - 3rem), transparent);
+}
+.choice__side { grid-row: span 3; display: grid; grid-template-rows: subgrid; position: relative; padding-top: 1.2rem; }
+.choice__side::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: 1px; background: var(--side-c); }
+.choice__side--delete { --side-c: var(--loom-b); grid-column: 1; }
+.choice__side--keep { --side-c: var(--loom-a); grid-column: 3; }
+.choice__act { font: 400 clamp(1.625rem, 1.2rem + 1.4vw, 2.5rem)/1.04 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
+.choice__lives { margin-top: 1rem; font: italic 400 clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem)/1.2 var(--font-display); }
+.choice__dies { margin-top: 0.4rem; max-width: 26ch; font: 400 1rem/1.45 var(--font-text); color: var(--ink-meta); }
+.choice__gap {
+  grid-row: 1 / span 3; grid-column: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+  padding-top: 0.35rem;
+  font: 400 var(--step-tiny)/1 var(--font-mono); color: var(--ink-meta);
+}
+.choice__gap::after {
+  content: ""; flex: 1; width: 4px; min-height: 5rem;
+  background: radial-gradient(circle, currentColor 1.1px, transparent 1.5px) 50% 0 / 4px 8px repeat-y;
+}
+.chapter--choice .chapter__body--after .ledger { margin-top: clamp(2rem, 1.5rem + 1.5vw, 3rem); }
+
+/* Chapter 9: no rail. One quiet line, centred, with air; then the TL;DR. The lit Steins Gate thread runs under the
+   middle of the screen here, so the centred column gets its own band of ground, feathered on every side (on the
+   section, beside the run's scrim, so it is part of the stage and never of the copy). */
+.chapter--quiet .quiet {
+  grid-column: 2 / span 10; justify-self: center;
+  position: relative;
+  display: grid; justify-items: center; text-align: center;
+  padding-top: clamp(3rem, 14vh, 9rem);
+}
+@media (width >= 48em) {
+  .chapter--quiet::before {
+    content: ""; position: absolute; z-index: 0; pointer-events: none;
+    left: 50%; width: min(100vw, 64rem); translate: -50% 0;
+    top: clamp(2rem, 10vh, 6.5rem); bottom: clamp(1rem, 5vh, 3rem);
+    background: var(--bg);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 86%, transparent), linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 86%, transparent), linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    mask-composite: intersect;
+    opacity: 0.92;
+  }
+}
+.quiet__title { display: flex; align-items: baseline; gap: 0.6rem; font: italic 400 1.25rem/1.2 var(--font-display); color: color-mix(in oklab, var(--fg) 76%, var(--bg)); }
+.quiet__line {
+  margin-top: clamp(0.6rem, 0.4rem + 0.8vw, 1.1rem);
+  font: 400 var(--step-chapter-loom)/0.98 var(--font-display);
+  letter-spacing: var(--tracking-chapter);
+  text-wrap: balance;
+}
+.chapter--quiet .chapter__tldr { margin-top: clamp(2.25rem, 1.5rem + 6vh, 5rem); max-width: 32ch; }
+.chapter--quiet .chapter__more > summary { margin-left: 0; }
+.chapter--quiet .chapter__more > .prose { text-align: left; }
+.chapter--quiet .turn { width: min(100%, 38rem); }
+
+@media (width < 48em) {
+  .chapter--hinge .poster { margin: 1.5rem 0 1.75rem; }
+  .chapter--choice .choice { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; row-gap: 0; }
+  .chapter--choice .choice::before { display: none; }
+  .choice__side, .choice__side--delete, .choice__side--keep { grid-row: auto; grid-column: 1; display: block; }
+  .choice__gap { grid-row: auto; grid-column: 1; flex-direction: row; justify-content: flex-start; padding: 1.1rem 0; }
+  .choice__gap::after { width: auto; height: 4px; min-height: 0; flex: 1; background: radial-gradient(circle, currentColor 1.1px, transparent 1.5px) 0 50% / 8px 4px repeat-x; }
+  .chapter--quiet .quiet { grid-column: 1 / -1; }
+}
+
+/* ---- The spoiler gate (12.4) -------------------------------------------------------------
+   The summary is the whole face: a flagged title, one line of advice, the six titles and the control. Open, it
+   folds down to the title and "Close". It sits at the top of the night run, on the full scrim. */
+.spoiler-gate { position: relative; }
+.spoiler-gate > summary { list-style: none; }
+.spoiler-gate > summary::-webkit-details-marker { display: none; }
+.gate {
+  display: grid; justify-items: start;
+  width: fit-content; max-width: min(47rem, calc(100% - 2 * var(--margin)));
+  margin: clamp(2rem, 7vh, 5rem) 0 clamp(3rem, 11vh, 7rem) calc(max(0px, (100% - var(--max-w)) / 2) + var(--margin) - 1.25rem);
+  padding: 1.1rem 1.25rem 1.25rem;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.gate:focus-visible { outline-offset: 0; }
+.gate__title {
+  max-width: 17ch;
+  font: 400 clamp(2.25rem, 1.55rem + 2.4vw, 3.75rem)/1.02 var(--font-display);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.gate__flag { display: flex; margin-bottom: 0.75rem; font-size: 1.25rem; letter-spacing: 0; }
+.gate__main { display: block; }
+.gate__main::first-letter { text-transform: uppercase; }
+.gate__range { color: color-mix(in oklab, var(--fg) 76%, var(--bg)); }
+.gate__advice { display: block; margin-top: 1.2rem; max-width: 46ch; text-wrap: balance; font: 400 1.0625rem/1.5 var(--font-text); }
+.gate__titles { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 0.3rem 1.4rem; margin-top: 1rem; font: 400 var(--step-small)/1.5 var(--font-text); color: var(--ink-meta); }
+.gate__titles i { font: italic 400 1rem/1 var(--font-display); margin-right: 0.3em; }
+.gate__control {
+  display: inline-flex; align-items: center; gap: 0.75rem;
+  margin-top: 1.75rem; min-height: 48px; padding: 0 1.15rem 0 1.2rem;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--fg) 8%, var(--bg));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--fg) 10%, transparent);
+  font: 500 1.1875rem/1 var(--font-display);
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.gate:hover .gate__control { background: color-mix(in oklab, var(--fg) 14%, var(--bg)); }
+.gate__close { display: none; }
+.gate__glyph { position: relative; width: 12px; height: 12px; }
+.gate__glyph::before, .gate__glyph::after { content: ""; position: absolute; left: 50%; top: 50%; translate: -50% -50%; border-radius: 1px; background: currentColor; }
+.gate__glyph::before { width: 12px; height: 1.7px; }
+.gate__glyph::after { width: 1.7px; height: 12px; transition: opacity var(--dur-2) var(--ease-micro); }
+.spoiler-gate[open] > .gate { margin-bottom: clamp(0.5rem, 3vh, 2rem); }
+.spoiler-gate[open] > .gate .gate__title { font-size: clamp(1.5rem, 1.25rem + 0.9vw, 2rem); max-width: none; }
+.spoiler-gate[open] > .gate .gate__advice, .spoiler-gate[open] > .gate .gate__titles { display: none; }
+.spoiler-gate[open] > .gate .gate__control { margin-top: 1rem; }
+.spoiler-gate[open] > .gate .gate__open { display: none; }
+.spoiler-gate[open] > .gate .gate__close { display: inline; }
+.spoiler-gate[open] > .gate .gate__glyph::after { opacity: 0; }
+@media (width < 48em) {
+  .gate { width: auto; max-width: none; margin-left: calc(var(--margin) - 0.75rem); margin-right: 0; padding-inline: 0.75rem; }
+  .gate__titles { grid-template-columns: repeat(2, auto); }
+  /* the backing runs edge to edge, like every text block's on phones */
+  .journal .gate::before { top: -7vh; bottom: -7vh; left: calc(0.75rem - var(--margin)); right: 0; }
+}
+
+/* ---- Term explainers (12.3) ---------------------------------------------------------------
+   A term reads as a term: one tonal ink step and a static dotted rule. Hover, focus or open fills a tonal plate
+   behind it; nothing grows or wipes. terms.js makes each a <button popovertarget>; without JS it is a link. */
+.term {
+  color: color-mix(in oklab, var(--fg) 84%, var(--bg));
+  text-decoration-line: underline; text-decoration-style: dotted;
+  text-decoration-thickness: max(1.5px, 0.075em); text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in oklab, var(--fg) 58%, var(--bg));
+  border-radius: 3px;
+  transition: background-color var(--dur-2) var(--ease-micro), color var(--dur-2) var(--ease-micro);
+}
+button.term {
+  font: inherit; letter-spacing: inherit; line-height: inherit;
+  padding: 0; margin: 0; border: 0; background: none;
+  vertical-align: baseline; text-align: inherit; cursor: pointer;
+}
+.term:hover, .term.is-open { color: var(--fg); background: color-mix(in oklab, var(--fg) 9%, transparent); text-decoration-color: var(--fg); }
+.term:focus-visible { color: var(--fg); outline-offset: 2px; }
+.tip {
+  margin: 0; inset: auto;
+  width: min(21rem, calc(100vw - 2rem));
+  padding: 0.8rem 1rem 0.9rem;
+  border: 0; border-radius: 9px;
+  background: #151714; color: var(--lab-ink);
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.07), 0 6px 14px -8px rgb(0 0 0 / 0.55);
+  font: 400 0.9375rem/1.5 var(--font-text);
+  text-align: left;
+}
+@supports (position-area: bottom) {
+  .tip { position-area: bottom span-right; margin-top: 8px; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; }
+}
+.tip.is-placed { position: fixed; }     /* the fallback without anchor positioning: terms.js sets top and left */
+.tip__term { margin-bottom: 0.3rem; font: italic 400 1.1875rem/1.2 var(--font-display); }
+.tip__no { margin-left: 0.35rem; font: 400 var(--step-tiny)/1 var(--font-mono); font-style: normal; color: color-mix(in oklab, var(--lab-ink) 72%, #151714); }
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion="full"] .tip:popover-open { transition: translate var(--dur-2) var(--ease-enter), display var(--dur-2) allow-discrete, overlay var(--dur-2) allow-discrete; }
+  @starting-style { :root[data-motion="full"] .tip:popover-open { translate: 0 4px; } }
+}
+
+/* ---- The world-line navigator (12.6) -----------------------------------------------------
+   A thin thread at the right edge, nine nodes coloured by field (alpha red, beta blue, the pale Steins Gate
+   thread; a chapter that crosses fields is split). The current node is lit in neon: the one UI neon state besides
+   the byte counter. The rail spans two grounds at once during a fall, so each node and the length of thread below
+   it take the ink of the ground they sit on (main.js sets data-on per node). Labels show on hover and focus. */
+.wl-nav { display: none; }
+@media (width >= 64em) {
+  .wl-nav {
+    display: block;
+    position: fixed; z-index: 30;
+    right: clamp(12px, 1.4vw, 24px);
+    top: calc(var(--nav-h) + 10vh); bottom: 10vh;
+    width: 26px;
+  }
+  .wl-nav__list { list-style: none; margin: 0; padding: 0; height: 100%; display: flex; flex-direction: column; }
+  .wl-nav__list > li {
+    position: relative; flex: 1 1 0; min-height: 26px;
+    --wl-ink: var(--lab-ink); --wl-bg: var(--lab);
+    --wl-a: #8C4438; --wl-b: #4F6E8F; --wl-sg: #E8E6DC;
+    color: var(--wl-ink);
+  }
+  .wl-nav__list > li:last-child { flex: none; }
+  .wl-nav__list > li[data-on="haze"] { --wl-ink: var(--haze-ink); --wl-bg: var(--haze); --wl-a: #97463B; --wl-b: #4A6888; --wl-sg: #F4F2EB; }
+  /* the length of thread down to the next node; a passed length reads stronger (the trail) */
+  .wl-nav__list > li:not(:last-child)::before {
+    content: ""; position: absolute; left: 50%; top: 13px; bottom: -13px; width: 1.5px; translate: -50% 0;
+    border-radius: 1px; pointer-events: none;
+    background: color-mix(in oklab, var(--wl-ink) 30%, var(--wl-bg));
+    transition: background-color var(--dur-3) var(--ease-enter);
+  }
+  .wl-nav__list > li[data-passed]::before { background: color-mix(in oklab, var(--wl-ink) 66%, var(--wl-bg)); }
+  .wl-nav__link { position: relative; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; text-decoration: none; }
+  .wl-nav__node {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--node, var(--wl-a));
+    box-shadow: 0 0 0 1.5px var(--wl-bg), 0 0 0 2.75px color-mix(in oklab, var(--wl-ink) 60%, var(--wl-bg));
+    transition: background-color var(--dur-3) var(--ease-enter), box-shadow var(--dur-3) var(--ease-enter), width var(--dur-3) var(--ease-enter), height var(--dur-3) var(--ease-enter);
+  }
+  .wl-nav__link[data-field="a"] .wl-nav__node { --node: var(--wl-a); }
+  .wl-nav__link[data-field="sg"] .wl-nav__node { --node: var(--wl-sg); }
+  .wl-nav__link[data-field="ba"] .wl-nav__node { background: linear-gradient(to bottom, var(--wl-b) 50%, var(--wl-a) 50%); }
+  .wl-nav__link[data-field="ab"] .wl-nav__node { background: linear-gradient(to bottom, var(--wl-a) 50%, var(--wl-b) 50%); }
+  .wl-nav__link[data-field="bsg"] .wl-nav__node { background: linear-gradient(to bottom, var(--wl-b) 50%, var(--wl-sg) 50%); }
+  /* behind the closed gate: hollow nodes */
+  :root:has(#spoilers:not([open])) .wl-nav__link[data-gated] .wl-nav__node { background: var(--wl-bg); }
+  .wl-nav__link:hover .wl-nav__node { box-shadow: 0 0 0 1.5px var(--wl-bg), 0 0 0 2.75px var(--wl-ink); }
+  .wl-nav__link[aria-current="true"] .wl-nav__node {
+    width: 11px; height: 11px;
+    background: var(--nx-core);
+    box-shadow: 0 0 0 1.5px var(--nx-glow), 0 0 7px 1px color-mix(in srgb, var(--nx-halo) 60%, transparent);
+  }
+  .wl-nav__link:focus-visible { outline: 2px solid var(--wl-ink); outline-offset: 1px; }
+  .wl-nav__label {
+    position: absolute; right: calc(100% + 8px); top: 50%; translate: 0 -50%;
+    display: flex; align-items: baseline; gap: 0.55rem;
+    padding: 0.5rem 0.75rem; border-radius: 7px;
+    background: #151714; color: var(--lab-ink);
+    box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.07);
+    font: 500 var(--step-small)/1 var(--font-text);
+    white-space: nowrap;
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--dur-2) var(--ease-micro);
+  }
+  .wl-nav__link:hover .wl-nav__label, .wl-nav__link:focus-visible .wl-nav__label { opacity: 1; }
+  .wl-nav__num { font: italic 400 1rem/1 var(--font-display); color: color-mix(in oklab, var(--lab-ink) 72%, #151714); }
+  .wl-nav__value { font: 400 var(--step-tiny)/1 var(--font-mono); color: color-mix(in oklab, var(--lab-ink) 72%, #151714); font-variant-numeric: tabular-nums slashed-zero; }
+  .wl-nav__spoiler { display: none; font-size: 0.9375rem; color: color-mix(in oklab, var(--lab-ink) 80%, #151714); }
+  :root:has(#spoilers:not([open])) .wl-nav__spoiler { display: inline-flex; }
+}
+
+/* ---- The chapter menu, v3: reading mode, spoiler marks, keys ------------------------------ */
+.reader { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.3rem; padding: 0 0.6rem 0.85rem; }
+.reader[hidden], .index__keys[hidden] { display: none; }
+.reader__label { margin-right: 0.45rem; font: 500 var(--step-small)/1 var(--font-text); color: color-mix(in oklab, var(--lab-ink) 72%, #151714); }
+.reader__opt {
+  min-height: 38px; padding: 0 0.8rem;
+  border: 0; border-radius: 7px; background: transparent;
+  color: color-mix(in oklab, var(--lab-ink) 76%, #151714);
+  font: italic 400 1.125rem/1 var(--font-display);
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro), color var(--dur-2) var(--ease-micro);
+}
+.reader__opt:hover { background: color-mix(in oklab, var(--lab-ink) 8%, #151714); }
+.reader__opt[aria-pressed="true"] { background: color-mix(in oklab, var(--lab-ink) 13%, #151714); color: var(--lab-ink); }
+.reader__opt:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+.index__spoiler { display: none; margin-left: 0.55rem; font-size: 0.875rem; color: color-mix(in oklab, var(--lab-ink) 76%, #151714); }
+:root:has(#spoilers:not([open])) .index__spoiler { display: inline-flex; }
+.index__keys { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.9rem; margin: 0.35rem 0.6rem 0.1rem; font: 400 var(--step-tiny)/1.6 var(--font-text); color: color-mix(in oklab, var(--lab-ink) 72%, #151714); }
+kbd {
+  margin-right: 0.35rem; padding: 0.2rem 0.45rem 0.25rem;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--lab-ink) 10%, #151714);
+  box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.35);
+  color: var(--lab-ink);
+  font: 400 var(--step-tiny)/1 var(--font-mono);
+}
+
+/* ---- The spoiler confirm (12.4) ------------------------------------------------------------ */
+.confirm {
+  width: min(27rem, calc(100vw - 2rem));
+  padding: 1.35rem 1.35rem 1.25rem;
+  border: 0; border-radius: 12px;
+  background: #151714; color: var(--lab-ink);
+  box-shadow: inset 0 1px 0 rgb(214 217 207 / 0.07), 0 10px 24px -12px rgb(0 0 0 / 0.6);
+}
+.confirm::backdrop { background: rgb(14 15 13 / 0.55); }
+.confirm__title { font: 400 1.5rem/1.15 var(--font-display); }
+.confirm__hint { margin-top: 0.5rem; font: 400 var(--step-small)/1.5 var(--font-text); color: color-mix(in oklab, var(--lab-ink) 76%, #151714); }
+.confirm__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; }
+.confirm__btn {
+  flex: 1 1 auto; min-height: 46px; padding: 0 1rem;
+  border: 0; border-radius: 8px;
+  background: color-mix(in oklab, var(--lab-ink) 9%, #151714); color: var(--lab-ink);
+  font: 500 1rem/1 var(--font-text);
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-micro);
+}
+.confirm__btn:hover { background: color-mix(in oklab, var(--lab-ink) 15%, #151714); }
+.confirm__btn:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+
+/* lab.html: a term or member reached from the journal steps up once, tonally */
+.glossary > div:target, .members tbody tr:target { background: var(--raise); border-radius: 6px; }
+.glossary > div:target { padding-inline: 0.75rem; margin-inline: -0.75rem; }
+
+/* ---- Reduced motion: the blink never shows; popovers open without a clip ------ */
+@media (prefers-reduced-motion: reduce) {
+  .steiner { display: none; }
+  .index:popover-open, .index:not(:popover-open) { clip-path: none; }
+}
+:root[data-motion="reduce"] .steiner { display: none; }
+:root[data-motion="reduce"] .index { clip-path: none !important; }
+
+/* ---- Print: journal only ----------------------------------------------------- */
+@media print {
+  .nav, .steiner, .phone, .footer__meter, .loom, .loom-map, .wl-nav, .doors, .probe, .lines__svg, .shift-btn { display: none !important; }
+  .journal .run::before, .journal .run::after, .journal .fall::before, .journal::after { display: none; }
+  .day, .night, .hero, .footer { background: #fff !important; color: #000 !important; }
+}
+
+/* lab.html: a shorter dusk before the footer */
+.fall--short { height: clamp(8rem, 26vh, 16rem); }

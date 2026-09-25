@@ -1,0 +1,12 @@
+# Keep build notes, research, tests and dev harnesses off the public deployment.
+research/
+tests/
+tools/
+dev/
+DESIGN.md
+README.md
+**/__pycache__/
+*.py
+.DS_Store
+.env*
+.vercel/

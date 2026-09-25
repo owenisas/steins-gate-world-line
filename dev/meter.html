@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en" data-motion="full">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meter harness</title>
+<meta name="robots" content="noindex">
+<script>
+  // Motion gate (same contract as the boot snippet): flags capability, hides nothing.
+  (function (root) {
+    var reduce = false;
+    try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    root.setAttribute('data-motion', reduce ? 'reduce' : 'full');
+  })(document.documentElement);
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/+esm",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+    "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.15.0/+esm",
+    "gsap/ScrollTrigger": "https://cdn.jsdelivr.net/npm/gsap@3.15.0/ScrollTrigger.js/+esm"
+  }
+}
+</script>
+<link rel="stylesheet" href="../assets/meter/meter.css">
+<style>
+  /* Harness only: neutral on purpose, not a design template. */
+  :root { color-scheme: dark; --lab: #0E0F0D; --lab-ink: #D6D9CF; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--lab); color: var(--lab-ink); }
+  body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between;
+         gap: 16px; padding: 10px 20px; background: rgb(14 15 13 / .92); }
+  .bar b { font-weight: 600; }
+  .stage { position: relative; min-height: calc(100svh - 50px); display: grid; place-content: center;
+           justify-items: center; gap: 28px; padding: 40px 20px;
+           background: linear-gradient(to bottom, rgb(214 217 207 / .06), rgb(214 217 207 / 0) 35%), var(--lab); }
+  .stage h1 { margin: 0; font-size: 15px; font-weight: 500; color: rgb(214 217 207 / .7); position: relative; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; position: relative; }
+  button { font: inherit; color: var(--lab-ink); background: #1b1c19; border: 1px solid #2b2c28; border-radius: 6px;
+           padding: 7px 12px; cursor: pointer; }
+  button:hover { background: #242521; }
+  button:focus-visible { outline: 2px solid #D6D9CF; outline-offset: 2px; }
+  output { display: block; min-height: 1.5em; font: 13px/1.4 ui-monospace, Menlo, monospace; color: rgb(214 217 207 / .6); }
+  section.row { display: grid; justify-items: center; gap: 20px; padding: 72px 20px; }
+  section.row h2 { margin: 0; font-size: 15px; font-weight: 500; color: rgb(214 217 207 / .7); }
+  .spacer { height: 60vh; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <b>Meter harness</b>
+    <!-- meter:mini 0.571024 id=mini -->
+    <div class="nx nx--mini" id="mini" data-meter data-size="mini" data-value="0.571024" role="img" aria-label="Divergence meter reading 0.571024">
+      <span class="nx__tube" data-char="0"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-0"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-0"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-0"/></svg></span>
+      <span class="nx__tube" data-char="dot"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-dot"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-dot"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-dot"/></svg></span>
+      <span class="nx__tube" data-char="5"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-5"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-5"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-5"/></svg></span>
+      <span class="nx__tube" data-char="7"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-7"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-7"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-7"/></svg></span>
+      <span class="nx__tube" data-char="1"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-1"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-1"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-1"/></svg></span>
+      <span class="nx__tube" data-char="0"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-0"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-0"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-0"/></svg></span>
+      <span class="nx__tube" data-char="2"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-2"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-2"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-2"/></svg></span>
+      <span class="nx__tube" data-char="4"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-4"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-4"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-4"/></svg></span>
+      <span class="nx__text">0.571024</span>
+    </div>
+    <!-- /meter -->
+    <span>dev/meter.html</span>
+  </div>
+
+  <section class="stage" id="stage">
+    <h1>Hero meter (DOM poster + WebGL)</h1>
+    <!-- meter:hero 1.130426 id=hero -->
+    <div class="nx nx--hero" id="hero" data-meter data-size="hero" data-value="1.130426" role="img" aria-label="Divergence meter reading 1.130426">
+      <span class="nx__tube" data-char="1"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-1"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-1"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-1"/></svg></span>
+      <span class="nx__tube" data-char="dot"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-dot"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-dot"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-dot"/></svg></span>
+      <span class="nx__tube" data-char="1"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-1"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-1"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-1"/></svg></span>
+      <span class="nx__tube" data-char="3"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-3"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-3"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-3"/></svg></span>
+      <span class="nx__tube" data-char="0"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-0"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-0"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-0"/></svg></span>
+      <span class="nx__tube" data-char="4"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-4"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-4"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-4"/></svg></span>
+      <span class="nx__tube" data-char="2"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-2"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-2"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-2"/></svg></span>
+      <span class="nx__tube" data-char="6"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-6"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-6"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-6"/></svg></span>
+      <span class="nx__text">1.130426</span>
+    </div>
+    <!-- /meter -->
+    <div class="controls">
+      <button type="button" data-act="shift">Shift to a random value</button>
+      <button type="button" data-act="instant">Instant swap</button>
+      <button type="button" data-act="ignite">Ignite 1.130426</button>
+      <button type="button" data-act="reread">Re-read</button>
+      <button type="button" data-act="faris">Blank first tube</button>
+    </div>
+    <output id="log" aria-live="polite"></output>
+  </section>
+
+  <section class="row">
+    <h2>Footer meter</h2>
+    <!-- meter:footer 1.048596 id=footer -->
+    <div class="nx nx--footer" id="footer" data-meter data-size="footer" data-value="1.048596" role="img" aria-label="Divergence meter reading 1.048596">
+      <span class="nx__tube" data-char="1"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-1"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-1"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-1"/></svg></span>
+      <span class="nx__tube" data-char="dot"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-dot"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-dot"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-dot"/></svg></span>
+      <span class="nx__tube" data-char="0"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-0"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-0"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-0"/></svg></span>
+      <span class="nx__tube" data-char="4"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-4"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-4"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-4"/></svg></span>
+      <span class="nx__tube" data-char="8"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-8"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-8"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-8"/></svg></span>
+      <span class="nx__tube" data-char="5"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-5"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-5"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-5"/></svg></span>
+      <span class="nx__tube" data-char="9"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-9"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-9"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-9"/></svg></span>
+      <span class="nx__tube" data-char="6"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-6"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-6"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-6"/></svg></span>
+      <span class="nx__text">1.048596</span>
+    </div>
+    <!-- /meter -->
+  </section>
+
+  <section class="row">
+    <h2>404 meter</h2>
+    <!-- meter:404 ?.?????? id=nf -->
+    <div class="nx nx--404" id="nf" data-meter data-size="404" data-value="?.??????" role="img" aria-label="Divergence meter: world line unknown">
+      <span class="nx__tube" data-char="q"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-q"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-q"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-q"/></svg></span>
+      <span class="nx__tube" data-char="dot"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-dot"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-dot"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-dot"/></svg></span>
+      <span class="nx__tube" data-char="q"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-q"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-q"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-q"/></svg></span>
+      <span class="nx__tube" data-char="q"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-q"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-q"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-q"/></svg></span>
+      <span class="nx__tube" data-char="q"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-q"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-q"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-q"/></svg></span>
+      <span class="nx__tube" data-char="q"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-q"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-q"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-q"/></svg></span>
+      <span class="nx__tube" data-char="q"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-q"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-q"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-q"/></svg></span>
+      <span class="nx__tube" data-char="q"><svg class="nx__stack" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-stack"/></svg><svg class="nx__lit" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use class="nx__sheath" href="../assets/meter/nixie.svg#nx-q"/><use class="nx__core" href="../assets/meter/nixie.svg#nx-q"/></svg><svg class="nx__front" viewBox="0 0 60 100" aria-hidden="true" focusable="false"><use href="../assets/meter/nixie.svg#nx-f-q"/></svg></span>
+      <span class="nx__text">?.??????</span>
+    </div>
+    <!-- /meter -->
+    <div class="controls"><button type="button" data-act="fail">Fail to lock</button></div>
+  </section>
+  <div class="spacer"></div>
+
+  <script type="module">
+    import { meter, meterAll } from '../assets/meter/meter.js';
+
+    const log = document.getElementById('log');
+    const all = meterAll();
+    const [mini, hero, footer, nf] = ['mini', 'hero', 'footer', 'nf'].map((id) => meter(document.getElementById(id)));
+    const rnd = () => `${Math.random() < 0.5 ? 0 : 1}.${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`;
+    const events = [];
+    document.addEventListener('meter:lock', (e) => events.push({ id: e.target.id, ...e.detail, t: performance.now() }));
+    document.addEventListener('meter:locked', (e) => {
+      if (e.target.id === 'hero') log.textContent = `locked ${e.detail.value} (${e.detail.mode})`;
+    });
+    window.__meter = { all, mini, hero, footer, nf, events, rnd };
+
+    document.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (!act) return;
+      const v = rnd();
+      if (act === 'shift') { hero.shiftTo(v); mini.shiftTo(v); }
+      if (act === 'instant') { hero.shiftTo(v, { roll: false }); mini.shiftTo(v, { roll: false }); }
+      if (act === 'ignite') hero.ignite('1.130426');
+      if (act === 'reread') hero.reread();
+      if (act === 'faris') hero.shiftTo(' 275349');
+      if (act === 'fail') nf.fail();
+    });
+
+    // The WebGL hero: after load + idle; any failure leaves the DOM meter as it is.
+    if (!new URLSearchParams(location.search).has('nogl')) {
+      import('../assets/meter/meter-gl.js')
+        .then(({ mountMeterGL }) => mountMeterGL(document.getElementById('stage'), { value: '1.130426' }))
+        .then((gl) => { window.__meter.gl = gl; })
+        .catch((err) => console.warn('[harness] meter-gl unavailable:', err));
+    }
+  </script>
+</body>
+</html>
