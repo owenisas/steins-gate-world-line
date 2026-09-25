@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-25
 
-**Live:** https://steins-gate-world-line.vercel.app · **License:** MIT for the code and original artwork (see [LICENSE](LICENSE); the franchise belongs to its owners)
+**Live:** https://steins-gate-world-line.vercel.app · **License:** MIT for the code and original artwork (see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md); the franchise belongs to its owners)
 
 An unofficial, non-commercial fan tribute. A static site that retells the nine world-line shifts of Steins;Gate (Akihabara, summer 2010) as a lab journal, read on an original eight-tube divergence meter that rolls to a new value as you scroll into each chapter or send a D-mail. Behind the chapters runs the world-line loom: Suzuha's twisted yarn, built in WebGL, that the story plays on as you scroll (DESIGN §11).
 
