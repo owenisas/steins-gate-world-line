@@ -164,8 +164,8 @@ The loom's own decisions (the ones §11 left open) are listed in DESIGN.md §11,
 - **One continuous day.** Chapters 1-3 share one wash from noon glare (#D2D4CC) to afternoon (#C3C6BD), so the haze never seams between sections. Grain sits on the substrate only and fades out wherever it meets an ungrained ground.
 - **Ledger mirror.** Chapter 6 mirrors chapter 3: the rail moves to the right, the title aligns right, and each row reads right to left (`0.456914 ← 0.409431`) while the DOM order stays logical for screen readers.
 - **The nav plate** follows the ground under it (haze or lab, transparent over the hero) with an ink flip; without JS it stays lab-dark.
-- **404 hosting.** The pages use relative asset paths. A host that serves `404.html` for deep paths needs a `<base href="/your-root/">` in `404.html` (and the expander's `sprite=` flag for the meter).
-- **No canonical URL** is set because there is no deployment URL yet; add one per page when there is.
+- **404 hosting.** `index.html` and `lab.html` use relative asset paths. `404.html` uses root-absolute paths (and the expander's `sprite=/assets/meter/nixie.svg` flag), because hosts serve it for any missing URL. On a host that serves the site from a sub-path, change those root paths.
+- **No canonical URL** is set yet. The live site is https://steins-gate-world-line.vercel.app; add a canonical per page if you give it a custom domain.
 
 ## Credits
 
@@ -185,4 +185,4 @@ Any static host works. With the Vercel CLI, from this folder:
 
     vercel deploy --prod
 
-In a non-interactive shell, add `--yes --scope <your-team>`. `.vercelignore` keeps research, tests, tools, dev pages, notes and `.env*` off the deployment. `vercel link` writes a `.env.local` holding a Vercel OIDC token: it is gitignored, so never commit or deploy it. `404.html` uses root-absolute paths, because Vercel serves it for any missing URL (for example `/a/b/c`).
+In a non-interactive shell, add `--yes --scope <your-team>`. `.vercelignore` keeps research, tests, tools, dev pages, notes, `.qa/` test output and `.env*` off the deployment. `vercel link` writes a `.env.local` holding a Vercel OIDC token: it is gitignored, so never commit or deploy it. `404.html` uses root-absolute paths, because Vercel serves it for any missing URL (for example `/a/b/c`).
